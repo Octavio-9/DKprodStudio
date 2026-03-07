@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mes Photos | DK prod Studio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="css/style.css" />
+</head>
+
+<body class="client-page">
+
+    <!-- Background blobs -->
+    <div class="bg-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <!-- Header -->
+    <header class="main-header">
+        <a href="index.html" class="logo" style="text-decoration:none;">
+            DK prod Studio
+        </a>
+        <nav class="main-nav">
+            <a href="index.html" class="nav-link">Accueil</a>
+            <a href="client.html" class="nav-link active">Mes Photos</a>
+            <a href="admin-login.html" class="nav-btn-outline">Studio</a>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <div id="clientRoot" style="position:relative;z-index:1;"></div>
+
+    <!-- Lightbox -->
+    <div class="lightbox" id="lightbox" onclick="closeLightbox(event)">
+        <div class="lightbox-inner">
+            <div class="lightbox-nav">
+                <button class="lb-btn" onclick="lbPrev()" title="Précédente">&#8592;</button>
+                <button class="lb-btn" onclick="lbNext()" title="Suivante">&#8594;</button>
+            </div>
+            <button class="lb-btn lightbox-close" onclick="closeLightboxBtn()" title="Fermer">✕</button>
+            <img id="lbImg" src="" alt="Aperçu" />
+            <div class="lightbox-actions">
+                <button class="btn-primary" onclick="downloadLbPhoto()" id="lbDownloadBtn">
+                    ⬇ Télécharger
+                </button>
+                <span class="lightbox-name" id="lbName"></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="js/api.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+        // ── State ─────────────────────────────────────────────────
+        let clientSession = null;
+        let selectedIndices = new Set();
+        let viewMode = 'grid'; // 'grid' | 'list'
+        let lbIndex = 0;
+
+        // ── Boot ──────────────────────────────────────────────────
+        window.addEventListener('DOMContentLoaded', async () => {
+            const params = new URLSearchParams(window.location.search);
+            const code = params.get('code');
+            if (code) await loadSession(code);
+            else renderCodeEntry();
+        });
+
+        async function loadSession(code) {
+            try {
+                const session = await getSession(code);
+                if (!session) {
+                    renderError('Code invalide ou séance introuvable. Veuillez vérifier votre code.');
+                    return;
+                }
+                // Check expiry (géré par l'API mais on vérifie quand même)
+                if (session.expires_at && new Date() > new Date(session.expires_at)) {
+                    renderError('Ce lien a expiré. Contactez le studio pour prolonger l\'accès.');
+                    return;
+                }
+                // Normaliser les noms de champs
+                clientSession = {
+                    ...session,
+                    clientName: session.client_name,
+                    createdAt: session.created_at,
+                    expiresAt: session.expires_at
+                };
+                renderGallery();
+            } catch (error) {
+                renderError('Erreur lors du chargement de la séance. Veuillez réessayer.');
+            }
+        }
+
+        // ── Code Entry (no code in URL) ───────────────────────────
+        function renderCodeEntry() {
+            document.getElementById('clientRoot').innerHTML = `
+        <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:100px 32px 60px;">
+          <div class="glass-card" style="padding:48px;max-width:460px;width:100%;display:flex;flex-direction:column;gap:24px;">
+            <div style="text-align:center;">
+              <div style="font-size:3rem;margin-bottom:8px;">📷</div>
+              <h1 style="font-family:'Playfair Display',serif;font-size:1.8rem;margin-bottom:8px;">Accéder à mes photos</h1>
+              <p style="color:var(--text-muted);font-size:.9rem;">Entrez le code reçu après votre séance photo</p>
+            </div>
+            <div id="codeEntryError"></div>
+            <form id="portaleCodeForm" onsubmit="portalSubmit(event)" style="display:flex;flex-direction:column;gap:16px;">
+              <div class="form-group">
+                <label class="form-label">Code d'accès</label>
+                <input type="text" id="portalCode" class="form-input" placeholder="ex: AB12CD" maxlength="6"
+                  style="text-transform:uppercase;letter-spacing:.15em;font-size:1.4rem;text-align:center;" autocomplete="off"/>
+              </div>
+              <button type="submit" class="btn-primary" style="justify-content:center;">
+                Accéder à mes photos →
+              </button>
+            </form>
+            <p style="text-align:center;font-size:.82rem;color:var(--text-muted);">
+              Code reçu dans votre e-mail ou remis par le studio après la séance.
+            </p>
+          </div>
+        </div>
+      `;
+            const inp = document.getElementById('portalCode');
+            if (inp) inp.addEventListener('input', () => inp.value = inp.value.toUpperCase());
+        }
+
+        async function portalSubmit(e) {
+            e.preventDefault();
+            const code = document.getElementById('portalCode').value.trim().toUpperCase();
+            if (!code) return;
+            try {
+                const session = await getSession(code);
+                if (session) {
+                    window.location.href = `client.html?code=${code}`;
+                } else {
+                    const el = document.getElementById('codeEntryError');
+                    el.innerHTML = '<div class="alert alert-error">⚠ Code introuvable. Vérifiez le code et réessayez.</div>';
+                    setTimeout(() => el.innerHTML = '', 3000);
+                }
+            } catch (error) {
+                const el = document.getElementById('codeEntryError');
+                el.innerHTML = '<div class="alert alert-error">⚠ Erreur lors de la vérification du code.</div>';
+                setTimeout(() => el.innerHTML = '', 3000);
+            }
+        }
+
+        // ── Gallery ───────────────────────────────────────────────
+        function renderGallery() {
+            const s = clientSession;
+            const photos = s.photos || [];
+
+            document.getElementById('clientRoot').innerHTML = `
+        <!-- Hero -->
+        <div class="client-hero">
+          <div class="hero-badge" style="margin-bottom:16px;">✦ ${escHtml(clientSession.type)}</div>
+          <h1>Bonjour, <span class="session-name-display">${escHtml(clientSession.clientName)}</span>&nbsp;!</h1>
+          <p>Vos photos de séance sont prêtes. Cliquez pour agrandir, sélectionnez pour télécharger.</p>
+          <div class="client-meta">
+            <span class="client-meta-badge">📅 ${formatDate(clientSession.createdAt)}</span>
+            <span class="client-meta-badge">📷 ${photos.length} photo${photos.length !== 1 ? 's' : ''}</span>
+            <span class="client-meta-badge">🔑 ${clientSession.code}</span>
+            ${clientSession.expiresAt ? `<span class="client-meta-badge" style="border-color:rgba(201,168,76,.3);color:var(--gold);">⏳ Expire le ${formatDate(clientSession.expiresAt)}</span>` : ''}
+          </div>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="client-toolbar">
+          <div class="toolbar-left">
+            <button class="view-btn ${viewMode === 'grid' ? 'active' : ''}" onclick="setView('grid')" title="Grille">⊞ Grille</button>
+            <button class="view-btn ${viewMode === 'list' ? 'active' : ''}" onclick="setView('list')" title="Liste">☰ Liste</button>
+          </div>
+          <div class="toolbar-right">
+            <span class="selected-count" id="selectedCount">${photos.length > 0 ? '0 sélectionnée(s)' : ''}</span>
+            ${photos.length > 0 ? `
+              <button class="btn-secondary" onclick="selectAll()" id="selectAllBtn">Tout sélectionner</button>
+              <button class="btn-primary" id="dlSelected" onclick="downloadSelected()" style="opacity:.5;pointer-events:none;font-size:.9rem;" title="Téléchargez les photos sélectionnées">
+                ⬇ Télécharger la sélection
+              </button>
+            ` : ''}
+          </div>
+        </div>
+
+        <!-- Gallery -->
+        <div class="client-gallery">
+          ${photos.length === 0 ? `
+            <div class="empty-state">
+              <div class="empty-icon">⏳</div>
+              <div class="empty-title">Photos en cours de traitement</div>
+              <p class="empty-text">Le studio prépare vos photos. Revenez dans quelques instants !</p>
+            </div>
+          ` : `
+            <div class="gallery-grid ${viewMode === 'list' ? 'list-view' : ''}" id="galleryGrid">
+              ${photos.map((p, i) => `
+                <div class="gallery-item" id="gi-${i}" onclick="galleryItemClick(event, ${i})">
+                  <img src="${p.dataUrl}" alt="${escHtml(p.name)}" loading="lazy"/>
+                  <div class="item-check">${selectedIndices.has(i) ? '✓' : ''}</div>
+                  <div class="item-overlay">
+                    <span class="item-name">${escHtml(p.name)}</span>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          `}
+        </div>
+      `;
+        }
+
+        function galleryItemClick(e, idx) {
+            // If clicking the checkmark area or in list view, toggle selection
+            const check = e.target.closest('.item-check');
+            if (check || viewMode === 'list') {
+                toggleSelect(idx);
+                return;
+            }
+            openLightbox(idx);
+        }
+
+        function toggleSelect(idx) {
+            if (selectedIndices.has(idx)) selectedIndices.delete(idx);
+            else selectedIndices.add(idx);
+            updateSelectionUI();
+        }
+
+        function updateSelectionUI() {
+            const photos = (clientSession.photos || []);
+            photos.forEach((_, i) => {
+                const el = document.getElementById(`gi-${i}`);
+                if (!el) return;
+                const check = el.querySelector('.item-check');
+                if (selectedIndices.has(i)) {
+                    el.classList.add('selected');
+                    if (check) check.textContent = '✓';
+                } else {
+                    el.classList.remove('selected');
+                    if (check) check.textContent = '';
+                }
+            });
+            const cnt = document.getElementById('selectedCount');
+            const dlBtn = document.getElementById('dlSelected');
+            if (cnt) cnt.textContent = `${selectedIndices.size} sélectionnée(s)`;
+            if (dlBtn) {
+                if (selectedIndices.size > 0) {
+                    dlBtn.style.opacity = '1'; dlBtn.style.pointerEvents = 'all';
+                } else {
+                    dlBtn.style.opacity = '.5'; dlBtn.style.pointerEvents = 'none';
+                }
+            }
+            const selBtn = document.getElementById('selectAllBtn');
+            if (selBtn) selBtn.textContent = selectedIndices.size === photos.length ? 'Tout désélectionner' : 'Tout sélectionner';
+        }
+
+        function selectAll() {
+            const photos = (clientSession.photos || []);
+            if (selectedIndices.size === photos.length) {
+                selectedIndices.clear();
+            } else {
+                photos.forEach((_, i) => selectedIndices.add(i));
+            }
+            updateSelectionUI();
+        }
+
+        function setView(mode) {
+            viewMode = mode;
+            renderGallery();
+            updateSelectionUI();
+        }
+
+        // ── Downloads ─────────────────────────────────────────────
+        function downloadPhoto(dataUrl, name) {
+            const a = document.createElement('a');
+            a.href = dataUrl;
+            a.download = name || 'photo.jpg';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        function downloadSelected() {
+            if (!selectedIndices.size) return;
+            const photos = clientSession.photos || [];
+            const selected = [...selectedIndices].sort();
+            let delay = 0;
+            selected.forEach(idx => {
+                if (!photos[idx]) return;
+                setTimeout(() => {
+                    downloadPhoto(photos[idx].dataUrl, photos[idx].name);
+                }, delay);
+                delay += 300;
+            });
+            showToast(`Téléchargement de ${selected.length} photo${selected.length !== 1 ? 's' : ''} en cours...`, 'success');
+        }
+
+        // ── Lightbox ──────────────────────────────────────────────
+        function openLightbox(idx) {
+            const photos = clientSession.photos || [];
+            if (!photos[idx]) return;
+            lbIndex = idx;
+            document.getElementById('lbImg').src = photos[idx].dataUrl;
+            document.getElementById('lbName').textContent = photos[idx].name;
+            document.getElementById('lightbox').classList.add('open');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeLightbox(e) {
+            if (e.target === document.getElementById('lightbox')) closeLightboxBtn();
+        }
+        function closeLightboxBtn() {
+            document.getElementById('lightbox').classList.remove('open');
+            document.body.style.overflow = '';
+        }
+
+        function lbPrev() {
+            const photos = clientSession.photos || [];
+            lbIndex = (lbIndex - 1 + photos.length) % photos.length;
+            openLightbox(lbIndex);
+        }
+        function lbNext() {
+            const photos = clientSession.photos || [];
+            lbIndex = (lbIndex + 1) % photos.length;
+            openLightbox(lbIndex);
+        }
+
+        function downloadLbPhoto() {
+            const photos = clientSession.photos || [];
+            if (!photos[lbIndex]) return;
+            downloadPhoto(photos[lbIndex].dataUrl, photos[lbIndex].name);
+            showToast('Photo téléchargée !', 'success');
+        }
+
+        // Keyboard navigation
+        document.addEventListener('keydown', e => {
+            const lb = document.getElementById('lightbox');
+            if (!lb.classList.contains('open')) return;
+            if (e.key === 'ArrowLeft') lbPrev();
+            if (e.key === 'ArrowRight') lbNext();
+            if (e.key === 'Escape') closeLightboxBtn();
+        });
+
+        // ── Error ─────────────────────────────────────────────────
+        function renderError(msg) {
+            document.getElementById('clientRoot').innerHTML = `
+        <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:100px 32px;">
+          <div class="glass-card" style="padding:48px;max-width:420px;text-align:center;display:flex;flex-direction:column;gap:20px;">
+            <div style="font-size:3rem;">🔐</div>
+            <h2 style="font-family:'Playfair Display',serif;">Accès non autorisé</h2>
+            <p style="color:var(--text-muted);font-size:.9rem;">${msg}</p>
+            <a href="index.html" class="btn-primary" style="text-decoration:none;justify-content:center;">← Retour à l'accueil</a>
+          </div>
+        </div>
+      `;
+        }
+
+        // ── HTML escape ───────────────────────────────────────────
+        function escHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+    </script>
+</body>
+
+</html>
