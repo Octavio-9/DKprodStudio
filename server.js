@@ -20,6 +20,7 @@ app.use(express.static('.'));
 // Configuration MySQL
 const dbConfig = {
   host: process.env.DB_HOST || 'localhost',
+  port: process.env.DB_PORT || 3306,
   user: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || 'photo_studio',
@@ -27,6 +28,13 @@ const dbConfig = {
   connectionLimit: 10,
   queueLimit: 0
 };
+
+// Autoriser le SSL pour les bases de données Cloud (souvent requis par Aiven, TiDB, etc.)
+if (process.env.DB_HOST && process.env.DB_HOST !== 'localhost') {
+  dbConfig.ssl = {
+    rejectUnauthorized: false
+  };
+}
 
 // Pool de connexions MySQL
 let pool;
