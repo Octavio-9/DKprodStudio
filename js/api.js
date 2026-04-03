@@ -4,7 +4,7 @@
 
 const API_BASE_URL = window.location.origin.includes('localhost') 
   ? 'http://localhost:3000/api' 
-  : '/api';
+  : 'https://dkprodstudio-2.onrender.com/api';
 
 // ── Gestion du token JWT ────────────────────────────────────
 function getToken() {
