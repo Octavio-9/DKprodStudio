@@ -1,5 +1,5 @@
 const express = require('express');
-const mysql = require('mysql2/promise');
+const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
@@ -17,46 +17,32 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(express.static('.'));
 
-// Configuration MySQL
+// Configuration PostgreSQL
 const dbConfig = {
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 3306,
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'photo_studio',
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
+  connectionString: process.env.DATABASE_URL || `postgresql://${process.env.DB_USER || 'postgres'}:${process.env.DB_PASSWORD || 'postgres'}@${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || 5432}/${process.env.DB_NAME || 'photo_studio'}`
 };
 
-// Autoriser le SSL pour les bases de données Cloud (souvent requis par Aiven, TiDB, etc.)
-if (process.env.DB_HOST && process.env.DB_HOST !== 'localhost') {
+// Autoriser le SSL pour les bases de données Cloud (Render, Supabase, Neon, etc.)
+if (process.env.DATABASE_URL || (process.env.DB_HOST && process.env.DB_HOST !== 'localhost')) {
   dbConfig.ssl = {
     rejectUnauthorized: false
   };
 }
 
-// Pool de connexions MySQL
+// Pool de connexions PostgreSQL
 let pool;
 
 async function initDatabase() {
   try {
-    // Connexion sans base de données pour créer la DB si elle n'existe pas
-    const tempConnection = await mysql.createConnection({
-      host: dbConfig.host,
-      user: dbConfig.user,
-      password: dbConfig.password
-    });
-
-    await tempConnection.query(`CREATE DATABASE IF NOT EXISTS ${dbConfig.database}`);
-    await tempConnection.end();
-
-    // Créer le pool avec la base de données
-    pool = mysql.createPool(dbConfig);
-
+    pool = new Pool(dbConfig);
+    
+    // Test de connexion
+    const client = await pool.connect();
+    client.release();
+    
     // Créer les tables
     await createTables();
-    console.log('✅ Base de données initialisée avec succès');
+    console.log('✅ Base de données PostgreSQL initialisée avec succès');
   } catch (error) {
     console.error('❌ Erreur lors de l\'initialisation de la base de données:', error);
     process.exit(1);
@@ -64,13 +50,15 @@ async function initDatabase() {
 }
 
 async function createTables() {
-  const connection = await pool.getConnection();
+  const client = await pool.connect();
   
   try {
+    await client.query('BEGIN');
+
     // Table des administrateurs
-    await connection.query(`
+    await client.query(`
       CREATE TABLE IF NOT EXISTS admins (
-        id INT AUTO_INCREMENT PRIMARY KEY,
+        id SERIAL PRIMARY KEY,
         username VARCHAR(50) UNIQUE NOT NULL,
         password_hash VARCHAR(255) NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -78,46 +66,52 @@ async function createTables() {
     `);
 
     // Table des séances
-    await connection.query(`
+    await client.query(`
       CREATE TABLE IF NOT EXISTS sessions (
-        id INT AUTO_INCREMENT PRIMARY KEY,
+        id SERIAL PRIMARY KEY,
         code VARCHAR(6) UNIQUE NOT NULL,
         client_name VARCHAR(255) NOT NULL,
         type VARCHAR(100) NOT NULL,
         note TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        expires_at DATETIME NOT NULL,
-        INDEX idx_code (code),
-        INDEX idx_expires (expires_at)
+        expires_at TIMESTAMP NOT NULL
       )
     `);
+    
+    await client.query('CREATE INDEX IF NOT EXISTS idx_code ON sessions(code)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_expires ON sessions(expires_at)');
 
     // Table des photos
-    await connection.query(`
+    await client.query(`
       CREATE TABLE IF NOT EXISTS photos (
-        id INT AUTO_INCREMENT PRIMARY KEY,
+        id SERIAL PRIMARY KEY,
         session_id INT NOT NULL,
         name VARCHAR(255) NOT NULL,
-        data_url LONGTEXT NOT NULL,
+        data_url TEXT NOT NULL,
         size INT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE,
-        INDEX idx_session (session_id)
+        FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
       )
     `);
+    await client.query('CREATE INDEX IF NOT EXISTS idx_session ON photos(session_id)');
 
     // Créer l'admin par défaut si aucun n'existe
-    const [admins] = await connection.query('SELECT COUNT(*) as count FROM admins');
-    if (admins[0].count === 0) {
+    const result = await client.query('SELECT COUNT(*) as count FROM admins');
+    if (parseInt(result.rows[0].count, 10) === 0) {
       const defaultPassword = await bcrypt.hash('studio123', 10);
-      await connection.query(
-        'INSERT INTO admins (username, password_hash) VALUES (?, ?)',
+      await client.query(
+        'INSERT INTO admins (username, password_hash) VALUES ($1, $2)',
         ['admin', defaultPassword]
       );
       console.log('✅ Admin par défaut créé (admin/studio123)');
     }
+
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
   } finally {
-    connection.release();
+    client.release();
   }
 }
 
@@ -145,13 +139,11 @@ function authenticateToken(req, res, next) {
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { username, password } = req.body;
-    const connection = await pool.getConnection();
     
-    const [rows] = await connection.query(
-      'SELECT * FROM admins WHERE username = ?',
+    const { rows } = await pool.query(
+      'SELECT * FROM admins WHERE username = $1',
       [username]
     );
-    connection.release();
 
     if (rows.length === 0) {
       return res.status(401).json({ error: 'Identifiant ou mot de passe incorrect' });
@@ -180,28 +172,29 @@ app.post('/api/auth/login', async (req, res) => {
 app.post('/api/auth/update', authenticateToken, async (req, res) => {
   try {
     const { username, password } = req.body;
-    const connection = await pool.getConnection();
     
     let query = 'UPDATE admins SET ';
     const params = [];
+    let paramIndex = 1;
     
     if (username) {
-      query += 'username = ?';
+      query += `username = $${paramIndex}`;
       params.push(username);
+      paramIndex++;
     }
     
     if (password) {
       const passwordHash = await bcrypt.hash(password, 10);
       if (username) query += ', ';
-      query += 'password_hash = ?';
+      query += `password_hash = $${paramIndex}`;
       params.push(passwordHash);
+      paramIndex++;
     }
     
-    query += ' WHERE id = ?';
+    query += ` WHERE id = $${paramIndex}`;
     params.push(req.user.id);
     
-    await connection.query(query, params);
-    connection.release();
+    await pool.query(query, params);
     
     res.json({ message: 'Identifiants mis à jour' });
   } catch (error) {
@@ -218,8 +211,7 @@ app.get('/api/auth/verify', authenticateToken, (req, res) => {
 // Sessions
 app.get('/api/sessions', authenticateToken, async (req, res) => {
   try {
-    const connection = await pool.getConnection();
-    const [sessions] = await connection.query(`
+    const { rows: sessions } = await pool.query(`
       SELECT s.*
       FROM sessions s
       ORDER BY s.created_at DESC
@@ -227,8 +219,8 @@ app.get('/api/sessions', authenticateToken, async (req, res) => {
 
     // Récupérer les photos pour chaque session
     for (let session of sessions) {
-      const [photos] = await connection.query(
-        'SELECT id, name, data_url, size, created_at FROM photos WHERE session_id = ? ORDER BY created_at',
+      const { rows: photos } = await pool.query(
+        'SELECT id, name, data_url, size, created_at FROM photos WHERE session_id = $1 ORDER BY created_at',
         [session.id]
       );
       session.photos = photos.map(p => ({
@@ -238,7 +230,6 @@ app.get('/api/sessions', authenticateToken, async (req, res) => {
         size: p.size
       }));
     }
-    connection.release();
 
     res.json(sessions);
   } catch (error) {
@@ -250,15 +241,13 @@ app.get('/api/sessions', authenticateToken, async (req, res) => {
 app.get('/api/sessions/:code', async (req, res) => {
   try {
     const { code } = req.params;
-    const connection = await pool.getConnection();
     
-    const [sessions] = await connection.query(
-      'SELECT * FROM sessions WHERE code = ?',
+    const { rows: sessions } = await pool.query(
+      'SELECT * FROM sessions WHERE code = $1',
       [code]
     );
     
     if (sessions.length === 0) {
-      connection.release();
       return res.status(404).json({ error: 'Séance introuvable' });
     }
 
@@ -266,16 +255,14 @@ app.get('/api/sessions/:code', async (req, res) => {
     
     // Vérifier l'expiration
     if (new Date(session.expires_at) < new Date()) {
-      connection.release();
       return res.status(403).json({ error: 'Séance expirée' });
     }
 
     // Récupérer les photos
-    const [photos] = await connection.query(
-      'SELECT id, name, data_url, size, created_at FROM photos WHERE session_id = ? ORDER BY created_at',
+    const { rows: photos } = await pool.query(
+      'SELECT id, name, data_url, size, created_at FROM photos WHERE session_id = $1 ORDER BY created_at',
       [session.id]
     );
-    connection.release();
 
     session.photos = photos.map(p => ({
       id: p.id,
@@ -294,7 +281,6 @@ app.get('/api/sessions/:code', async (req, res) => {
 app.post('/api/sessions', authenticateToken, async (req, res) => {
   try {
     const { clientName, type, note, expiryDays } = req.body;
-    const connection = await pool.getConnection();
 
     // Générer un code unique
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -306,8 +292,8 @@ app.post('/api/sessions', authenticateToken, async (req, res) => {
         chars[Math.floor(Math.random() * chars.length)]
       ).join('');
       
-      const [existing] = await connection.query(
-        'SELECT id FROM sessions WHERE code = ?',
+      const { rows: existing } = await pool.query(
+        'SELECT id FROM sessions WHERE code = $1',
         [code]
       );
       exists = existing.length > 0;
@@ -317,15 +303,14 @@ app.post('/api/sessions', authenticateToken, async (req, res) => {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + (expiryDays || 30));
 
-    const [result] = await connection.query(
+    const result = await pool.query(
       `INSERT INTO sessions (code, client_name, type, note, expires_at) 
-       VALUES (?, ?, ?, ?, ?)`,
+       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
       [code, clientName, type, note || null, expiresAt]
     );
-    connection.release();
 
     res.json({ 
-      id: result.insertId, 
+      id: result.rows[0].id, 
       code, 
       clientName, 
       type, 
@@ -343,10 +328,8 @@ app.post('/api/sessions', authenticateToken, async (req, res) => {
 app.delete('/api/sessions/:code', authenticateToken, async (req, res) => {
   try {
     const { code } = req.params;
-    const connection = await pool.getConnection();
     
-    await connection.query('DELETE FROM sessions WHERE code = ?', [code]);
-    connection.release();
+    await pool.query('DELETE FROM sessions WHERE code = $1', [code]);
     
     res.json({ message: 'Séance supprimée' });
   } catch (error) {
@@ -361,16 +344,13 @@ app.post('/api/sessions/:code/photos', authenticateToken, async (req, res) => {
     const { code } = req.params;
     const { photos } = req.body; // Array of { name, dataUrl, size }
     
-    const connection = await pool.getConnection();
-    
     // Récupérer la session
-    const [sessions] = await connection.query(
-      'SELECT id FROM sessions WHERE code = ?',
+    const { rows: sessions } = await pool.query(
+      'SELECT id FROM sessions WHERE code = $1',
       [code]
     );
     
     if (sessions.length === 0) {
-      connection.release();
       return res.status(404).json({ error: 'Séance introuvable' });
     }
 
@@ -378,14 +358,13 @@ app.post('/api/sessions/:code/photos', authenticateToken, async (req, res) => {
 
     // Insérer les photos
     const insertPromises = photos.map(photo => 
-      connection.query(
-        'INSERT INTO photos (session_id, name, data_url, size) VALUES (?, ?, ?, ?)',
+      pool.query(
+        'INSERT INTO photos (session_id, name, data_url, size) VALUES ($1, $2, $3, $4)',
         [sessionId, photo.name, photo.dataUrl, photo.size || 0]
       )
     );
 
     await Promise.all(insertPromises);
-    connection.release();
 
     res.json({ message: `${photos.length} photo(s) ajoutée(s)` });
   } catch (error) {
@@ -397,16 +376,16 @@ app.post('/api/sessions/:code/photos', authenticateToken, async (req, res) => {
 app.delete('/api/sessions/:code/photos/:photoId', authenticateToken, async (req, res) => {
   try {
     const { code, photoId } = req.params;
-    const connection = await pool.getConnection();
     
-    // Vérifier que la photo appartient à la session
-    const [photos] = await connection.query(`
-      DELETE p FROM photos p
-      INNER JOIN sessions s ON p.session_id = s.id
-      WHERE s.code = ? AND p.id = ?
+    // Vérifier que la photo appartient à la session (syntaxe compatible PostgreSQL)
+    await pool.query(`
+      DELETE FROM photos 
+      USING sessions 
+      WHERE photos.session_id = sessions.id 
+      AND sessions.code = $1 
+      AND photos.id = $2
     `, [code, photoId]);
     
-    connection.release();
     res.json({ message: 'Photo supprimée' });
   } catch (error) {
     console.error('Erreur delete photo:', error);
@@ -417,15 +396,14 @@ app.delete('/api/sessions/:code/photos/:photoId', authenticateToken, async (req,
 app.delete('/api/sessions/:code/photos', authenticateToken, async (req, res) => {
   try {
     const { code } = req.params;
-    const connection = await pool.getConnection();
     
-    await connection.query(`
-      DELETE p FROM photos p
-      INNER JOIN sessions s ON p.session_id = s.id
-      WHERE s.code = ?
+    await pool.query(`
+      DELETE FROM photos 
+      USING sessions 
+      WHERE photos.session_id = sessions.id 
+      AND sessions.code = $1
     `, [code]);
     
-    connection.release();
     res.json({ message: 'Toutes les photos supprimées' });
   } catch (error) {
     console.error('Erreur delete all photos:', error);
@@ -436,19 +414,15 @@ app.delete('/api/sessions/:code/photos', authenticateToken, async (req, res) => 
 // Statistiques
 app.get('/api/stats', authenticateToken, async (req, res) => {
   try {
-    const connection = await pool.getConnection();
-    
-    const [sessionCount] = await connection.query('SELECT COUNT(*) as count FROM sessions');
-    const [photoCount] = await connection.query('SELECT COUNT(*) as count FROM photos');
-    const [recentSession] = await connection.query(
+    const { rows: sessionCount } = await pool.query('SELECT COUNT(*) as count FROM sessions');
+    const { rows: photoCount } = await pool.query('SELECT COUNT(*) as count FROM photos');
+    const { rows: recentSession } = await pool.query(
       'SELECT * FROM sessions ORDER BY created_at DESC LIMIT 1'
     );
     
-    connection.release();
-    
     res.json({
-      totalSessions: sessionCount[0].count,
-      totalPhotos: photoCount[0].count,
+      totalSessions: parseInt(sessionCount[0].count, 10),
+      totalPhotos: parseInt(photoCount[0].count, 10),
       recentSession: recentSession[0] || null
     });
   } catch (error) {
