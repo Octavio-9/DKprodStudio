@@ -63,9 +63,19 @@ async function createTables() {
         email VARCHAR(255) UNIQUE,
         username VARCHAR(50) UNIQUE NOT NULL,
         password_hash VARCHAR(255) NOT NULL,
+        role VARCHAR(20) DEFAULT 'admin',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    // Migration: ajouter role
+    await client.query('SAVEPOINT migration_admin_role');
+    try {
+      await client.query("ALTER TABLE admins ADD COLUMN role VARCHAR(20) DEFAULT 'admin'");
+      // Promouvoir le premier utilisateur existant au rang de super admin
+      await client.query("UPDATE admins SET role = 'super_admin' WHERE id = (SELECT id FROM admins ORDER BY id ASC LIMIT 1)");
+      await client.query('RELEASE SAVEPOINT migration_admin_role');
+    } catch (e) { await client.query('ROLLBACK TO SAVEPOINT migration_admin_role'); }
 
     // Migration: ajouter name et email si absents
     await client.query('SAVEPOINT migration_admin_name');
@@ -132,8 +142,8 @@ async function createTables() {
     if (parseInt(result.rows[0].count, 10) === 0) {
       const defaultPassword = await bcrypt.hash('studio123', 10);
       await client.query(
-        'INSERT INTO admins (username, password_hash) VALUES ($1, $2)',
-        ['admin', defaultPassword]
+        'INSERT INTO admins (username, password_hash, role) VALUES ($1, $2, $3)',
+        ['admin', defaultPassword, 'super_admin']
       );
       console.log('✅ Admin par défaut créé (admin/studio123)');
     }
@@ -194,17 +204,18 @@ app.post('/api/auth/register', async (req, res) => {
 
     const passwordHash = await bcrypt.hash(password, 10);
     const { rows: newUser } = await pool.query(
-      'INSERT INTO admins (name, email, username, password_hash) VALUES ($1, $2, $3, $4) RETURNING id',
+      'INSERT INTO admins (name, email, username, password_hash) VALUES ($1, $2, $3, $4) RETURNING id, role',
       [name, email, username, passwordHash]
     );
+    const role = newUser[0].role || 'admin';
 
     const token = jwt.sign(
-      { id: newUser[0].id, username, name, email },
+      { id: newUser[0].id, username, name, email, role },
       process.env.JWT_SECRET || 'your-secret-key-change-in-production',
       { expiresIn: '24h' }
     );
 
-    res.json({ token, username, name, email });
+    res.json({ token, username, name, email, role });
   } catch (error) {
     console.error('Erreur register:', error);
     res.status(500).json({ error: 'Erreur serveur' });
@@ -232,12 +243,12 @@ app.post('/api/auth/login', async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: admin.id, username: admin.username, name: admin.name, email: admin.email },
+      { id: admin.id, username: admin.username, name: admin.name, email: admin.email, role: admin.role },
       process.env.JWT_SECRET || 'your-secret-key-change-in-production',
       { expiresIn: '24h' }
     );
 
-    res.json({ token, username: admin.username, name: admin.name, email: admin.email });
+    res.json({ token, username: admin.username, name: admin.name, email: admin.email, role: admin.role });
   } catch (error) {
     console.error('Erreur login:', error);
     res.status(500).json({ error: 'Erreur serveur' });
@@ -526,6 +537,51 @@ app.get('/api/stats', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Erreur stats:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+function requireSuperAdmin(req, res, next) {
+  if (!req.user || req.user.role !== 'super_admin') {
+    return res.status(403).json({ error: 'Accès refusé. Réservé au Super Admin.' });
+  }
+  next();
+}
+
+app.get('/api/super/users', authenticateToken, requireSuperAdmin, async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT a.id, a.name, a.email, a.username, a.role, a.created_at,
+             COUNT(DISTINCT s.id) as sessions_count,
+             COUNT(p.id) as photos_count
+      FROM admins a
+      LEFT JOIN sessions s ON s.admin_id = a.id
+      LEFT JOIN photos p ON p.session_id = s.id
+      GROUP BY a.id
+      ORDER BY a.created_at DESC
+    `);
+    res.json(rows.map(row => ({
+      ...row,
+      sessions_count: parseInt(row.sessions_count, 10) || 0,
+      photos_count: parseInt(row.photos_count, 10) || 0
+    })));
+  } catch (error) {
+    console.error('Erreur get super users:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+app.delete('/api/super/users/:id', authenticateToken, requireSuperAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (parseInt(id, 10) === req.user.id) {
+      return res.status(400).json({ error: "Impossible de supprimer votre propre compte" });
+    }
+    const result = await pool.query('DELETE FROM admins WHERE id = $1', [id]);
+    if (result.rowCount === 0) return res.status(404).json({ error: "Utilisateur introuvable" });
+    res.json({ message: "Utilisateur et ses données supprimés" });
+  } catch (error) {
+    console.error('Erreur delete super user:', error);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });

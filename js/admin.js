@@ -41,6 +41,11 @@ function renderLayout() {
         <button class="sidebar-item" id="navSettings" onclick="showSettingsTab()">
           <span class="icon">⚙️</span> Paramètres
         </button>
+        ${window.currentUser?.role === 'super_admin' ? `
+        <button class="sidebar-item" id="navSuper" onclick="showSuperAdminTab()">
+          <span class="icon">👑</span> Supervision
+        </button>
+        ` : ''}
         <a href="index.html" class="sidebar-item" target="_blank">
           <span class="icon">🌐</span> Vue client
         </a>
@@ -54,6 +59,7 @@ function renderLayout() {
         <div id="dashView"></div>
         <div id="sessionsView" style="display:none;"></div>
         <div id="settingsView" style="display:none;"></div>
+        <div id="superView" style="display:none;"></div>
         <div id="sessionDetailView" class="session-detail"></div>
       </main>
     </div>
@@ -66,9 +72,11 @@ function setSidebarActive(tab) {
     const dash = document.getElementById('navDashboard');
     const sessionsBtn = document.getElementById('navSessions');
     const settingsBtn = document.getElementById('navSettings');
+    const superBtn = document.getElementById('navSuper');
     if (dash) dash.classList.toggle('active', tab === 'dashboard');
     if (sessionsBtn) sessionsBtn.classList.toggle('active', tab === 'sessions');
     if (settingsBtn) settingsBtn.classList.toggle('active', tab === 'settings');
+    if (superBtn) superBtn.classList.toggle('active', tab === 'super');
 }
 
 async function showDashboardTab() {
@@ -86,6 +94,11 @@ async function showSettingsTab() {
     await showSettings();
 }
 
+async function showSuperAdminTab() {
+    setSidebarActive('super');
+    await showSuperAdmin();
+}
+
 async function showDashboard() {
     currentView = 'dashboard';
     currentSessionCode = null;
@@ -97,6 +110,8 @@ async function showDashboard() {
     document.getElementById('dashView').style.display = 'block';
     document.getElementById('sessionsView').style.display = 'none';
     document.getElementById('settingsView').style.display = 'none';
+    const superV = document.getElementById('superView');
+    if (superV) superV.style.display = 'none';
     document.getElementById('sessionDetailView').classList.remove('active');
 
     document.getElementById('dashView').innerHTML = `
@@ -152,6 +167,8 @@ async function showSessions() {
     document.getElementById('dashView').style.display = 'none';
     document.getElementById('sessionsView').style.display = 'block';
     document.getElementById('settingsView').style.display = 'none';
+    const superV = document.getElementById('superView');
+    if (superV) superV.style.display = 'none';
     document.getElementById('sessionDetailView').classList.remove('active');
 
     document.getElementById('sessionsView').innerHTML = `
@@ -213,6 +230,8 @@ async function openSessionDetail(code) {
     document.getElementById('dashView').style.display = 'none';
     document.getElementById('sessionsView').style.display = 'none';
     document.getElementById('settingsView').style.display = 'none';
+    const superV = document.getElementById('superView');
+    if (superV) superV.style.display = 'none';
     const detail = document.getElementById('sessionDetailView');
     detail.classList.add('active');
     renderSessionDetail(session);
@@ -534,6 +553,8 @@ async function showSettings() {
     
     document.getElementById('dashView').style.display = 'none';
     document.getElementById('sessionsView').style.display = 'none';
+    const superV = document.getElementById('superView');
+    if (superV) superV.style.display = 'none';
     document.getElementById('sessionDetailView').classList.remove('active');
     
     const view = document.getElementById('settingsView');
@@ -609,6 +630,108 @@ async function handleUpdateSettings(e) {
 function doLogout() {
     removeToken();
     window.location.href = 'admin-login.html';
+}
+
+// ── Super Admin View ──────────────────────────────────────────
+async function showSuperAdmin() {
+    if (window.currentUser?.role !== 'super_admin') {
+        showToast('Accès refusé', 'error');
+        return showDashboardTab();
+    }
+    
+    currentView = 'super';
+    document.getElementById('dashView').style.display = 'none';
+    document.getElementById('sessionsView').style.display = 'none';
+    document.getElementById('settingsView').style.display = 'none';
+    document.getElementById('sessionDetailView').classList.remove('active');
+    
+    const view = document.getElementById('superView');
+    view.style.display = 'block';
+    
+    const users = await getSuperUsers();
+    const totalSess = users.reduce((a, u) => a + u.sessions_count, 0);
+    const totalPhotos = users.reduce((a, u) => a + u.photos_count, 0);
+    
+    view.innerHTML = `
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Supervision (Super Admin)</h1>
+        <p class="page-subtitle">Gérez les comptes utilisateurs de l'application et suivez l'activité globale.</p>
+      </div>
+    </div>
+    
+    <!-- Stats Globales -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Utilisateurs inscrits</div>
+        <div class="stat-value">${users.length}</div>
+        <div class="stat-sub">au total</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Séances totales</div>
+        <div class="stat-value">${totalSess}</div>
+        <div class="stat-sub">tous comptes confondus</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Photos totales</div>
+        <div class="stat-value">${totalPhotos}</div>
+        <div class="stat-sub">hébergées sur Cloudinary</div>
+      </div>
+    </div>
+    
+    <div class="section-title">👥 Tous les utilisateurs</div>
+    <div class="sessions-list" style="margin-top: 16px;">
+        <table style="width: 100%; text-align: left; border-collapse: collapse; background: var(--surface); border-radius: var(--radius-lg); overflow: hidden;">
+            <thead style="background: rgba(255,255,255,0.05);">
+                <tr>
+                    <th style="padding: 16px;">Utilisateur</th>
+                    <th style="padding: 16px;">Contact</th>
+                    <th style="padding: 16px;">Rôle</th>
+                    <th style="padding: 16px;">Volume</th>
+                    <th style="padding: 16px; text-align: right;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${users.map(u => `
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <td style="padding: 16px;">
+                        <strong style="color:var(--gold);">${escHtml(u.name || u.username)}</strong><br>
+                        <span style="font-size:0.8rem;color:var(--text-muted);">@${escHtml(u.username)}</span>
+                    </td>
+                    <td style="padding: 16px;">${escHtml(u.email || '—')}</td>
+                    <td style="padding: 16px;">
+                        <span class="code-pill" style="font-size:0.75rem; ${u.role === 'super_admin' ? 'background: #5b4a1b; color: #f5d78a;' : ''}">
+                            ${u.role}
+                        </span>
+                    </td>
+                    <td style="padding: 16px; font-size: 0.9rem;">
+                        ${u.sessions_count} séance(s)<br>
+                        <span style="color:var(--text-muted);">${u.photos_count} photo(s)</span>
+                    </td>
+                    <td style="padding: 16px; text-align: right;">
+                        ${u.id !== window.currentUser.id ? `
+                            <button class="btn-danger" style="padding: 6px 12px; font-size: 0.8rem;" onclick="handleDeleteUser(${u.id})">
+                                🗑 Supprimer
+                            </button>
+                        ` : '<span style="color:var(--text-muted); font-size:0.85rem;">(Vous)</span>'}
+                    </td>
+                </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    </div>
+    `;
+}
+
+async function handleDeleteUser(id) {
+    if (!confirm('Attention ! Êtes-vous sûr de vouloir supprimer cet utilisateur ?\\n\\nToutes ses séances et les accès de ses clients seront irrémédiablement perdus !')) return;
+    try {
+        await deleteUser(id);
+        showToast('Utilisateur supprimé', 'success');
+        showSuperAdmin(); // Rafraichir
+    } catch (error) {
+        showToast('Erreur: ' + error.message, 'error');
+    }
 }
 
 // ── HTML escape ──────────────────────────────────────────────

@@ -151,3 +151,19 @@ async function getStats() {
     return { totalSessions: 0, totalPhotos: 0, recentSession: null };
   }
 }
+
+// ── Super Admin ─────────────────────────────────────────────
+async function getSuperUsers() {
+  try {
+    return await apiRequest('/super/users');
+  } catch (error) {
+    console.error('Erreur getSuperUsers:', error);
+    return [];
+  }
+}
+
+async function deleteUser(id) {
+  return await apiRequest(`/super/users/${id}`, {
+    method: 'DELETE'
+  });
+}
