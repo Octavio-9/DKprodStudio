@@ -308,12 +308,17 @@ app.get('/api/auth/verify', authenticateToken, (req, res) => {
 // Sessions
 app.get('/api/sessions', authenticateToken, async (req, res) => {
   try {
-    const { rows: sessions } = await pool.query(`
-      SELECT s.*
+    const isAdmin = req.user.role === 'super_admin';
+    const queryStr = `
+      SELECT s.*, a.username as admin_username 
       FROM sessions s
-      WHERE s.admin_id = $1
+      LEFT JOIN admins a ON s.admin_id = a.id
+      ${isAdmin ? '' : 'WHERE s.admin_id = $1'}
       ORDER BY s.created_at DESC
-    `, [req.user.id]);
+    `;
+    const params = isAdmin ? [] : [req.user.id];
+    
+    const { rows: sessions } = await pool.query(queryStr, params);
 
     // Récupérer les photos pour chaque session
     for (let session of sessions) {
@@ -426,8 +431,16 @@ app.post('/api/sessions', authenticateToken, async (req, res) => {
 app.delete('/api/sessions/:code', authenticateToken, async (req, res) => {
   try {
     const { code } = req.params;
+    const isAdmin = req.user.role === 'super_admin';
     
-    const result = await pool.query('DELETE FROM sessions WHERE code = $1 AND admin_id = $2', [code, req.user.id]);
+    let queryStr = 'DELETE FROM sessions WHERE code = $1';
+    const params = [code];
+    if (!isAdmin) {
+      queryStr += ' AND admin_id = $2';
+      params.push(req.user.id);
+    }
+    
+    const result = await pool.query(queryStr, params);
     
     if (result.rowCount === 0) {
       return res.status(403).json({ error: 'Accès refusé ou séance introuvable' });
@@ -445,12 +458,16 @@ app.post('/api/sessions/:code/photos', authenticateToken, async (req, res) => {
   try {
     const { code } = req.params;
     const { photos } = req.body; // Array of { name, dataUrl, size }
+    const isAdmin = req.user.role === 'super_admin';
     
     // Récupérer la session
-    const { rows: sessions } = await pool.query(
-      'SELECT id FROM sessions WHERE code = $1 AND admin_id = $2',
-      [code, req.user.id]
-    );
+    let queryStr = 'SELECT id FROM sessions WHERE code = $1';
+    let params = [code];
+    if (!isAdmin) {
+      queryStr += ' AND admin_id = $2';
+      params.push(req.user.id);
+    }
+    const { rows: sessions } = await pool.query(queryStr, params);
     
     if (sessions.length === 0) {
       return res.status(404).json({ error: 'Séance introuvable' });
@@ -478,16 +495,22 @@ app.post('/api/sessions/:code/photos', authenticateToken, async (req, res) => {
 app.delete('/api/sessions/:code/photos/:photoId', authenticateToken, async (req, res) => {
   try {
     const { code, photoId } = req.params;
+    const isAdmin = req.user.role === 'super_admin';
     
     // Vérifier que la photo appartient à la session (syntaxe compatible PostgreSQL)
-    await pool.query(`
+    let queryStr = `
       DELETE FROM photos 
       USING sessions 
       WHERE photos.session_id = sessions.id 
       AND sessions.code = $1 
       AND photos.id = $2
-      AND sessions.admin_id = $3
-    `, [code, photoId, req.user.id]);
+    `;
+    const params = [code, photoId];
+    if (!isAdmin) {
+      queryStr += ' AND sessions.admin_id = $3';
+      params.push(req.user.id);
+    }
+    await pool.query(queryStr, params);
     
     res.json({ message: 'Photo supprimée' });
   } catch (error) {
@@ -499,14 +522,20 @@ app.delete('/api/sessions/:code/photos/:photoId', authenticateToken, async (req,
 app.delete('/api/sessions/:code/photos', authenticateToken, async (req, res) => {
   try {
     const { code } = req.params;
+    const isAdmin = req.user.role === 'super_admin';
     
-    await pool.query(`
+    let queryStr = `
       DELETE FROM photos 
       USING sessions 
       WHERE photos.session_id = sessions.id 
       AND sessions.code = $1
-      AND sessions.admin_id = $2
-    `, [code, req.user.id]);
+    `;
+    const params = [code];
+    if (!isAdmin) {
+      queryStr += ' AND sessions.admin_id = $2';
+      params.push(req.user.id);
+    }
+    await pool.query(queryStr, params);
     
     res.json({ message: 'Toutes les photos supprimées' });
   } catch (error) {
@@ -582,6 +611,52 @@ app.delete('/api/super/users/:id', authenticateToken, requireSuperAdmin, async (
     res.json({ message: "Utilisateur et ses données supprimés" });
   } catch (error) {
     console.error('Erreur delete super user:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+app.put('/api/super/users/:id', authenticateToken, requireSuperAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email, username, password } = req.body;
+    
+    let query = 'UPDATE admins SET ';
+    const params = [];
+    let paramIndex = 1;
+    const setClauses = [];
+    
+    if (name) { setClauses.push(`name = $${paramIndex++}`); params.push(name); }
+    if (email) { setClauses.push(`email = $${paramIndex++}`); params.push(email); }
+    if (username) { setClauses.push(`username = $${paramIndex++}`); params.push(username); }
+    if (password) { 
+        const passwordHash = await bcrypt.hash(password, 10);
+        setClauses.push(`password_hash = $${paramIndex++}`); params.push(passwordHash); 
+    }
+    
+    if (setClauses.length === 0) return res.json({ message: 'Rien à mettre à jour' });
+    
+    query += setClauses.join(', ');
+    query += ` WHERE id = $${paramIndex}`;
+    params.push(id);
+    
+    if (email || username) {
+        let checkQuery = 'SELECT id FROM admins WHERE id != $1 AND (';
+        const checkParams = [id];
+        const conditions = [];
+        if (email) { conditions.push(`email = $2`); checkParams.push(email); }
+        if (username) { conditions.push(`username = $${checkParams.length + 1}`); checkParams.push(username); }
+        checkQuery += conditions.join(' OR ') + ')';
+        
+        const { rows } = await pool.query(checkQuery, checkParams);
+        if (rows.length > 0) return res.status(400).json({ error: 'Cet email ou identifiant est déjà utilisé' });
+    }
+    
+    const result = await pool.query(query, params);
+    if (result.rowCount === 0) return res.status(404).json({ error: "Utilisateur introuvable" });
+    
+    res.json({ message: 'Utilisateur mis à jour' });
+  } catch (error) {
+    console.error('Erreur update super user:', error);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });

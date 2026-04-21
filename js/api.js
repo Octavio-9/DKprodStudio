@@ -167,3 +167,10 @@ async function deleteUser(id) {
     method: 'DELETE'
   });
 }
+
+async function updateSuperUser(id, data) {
+  return await apiRequest(`/super/users/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  });
+}

@@ -272,28 +272,47 @@
         }
 
         // ── Downloads ─────────────────────────────────────────────
-        function downloadPhoto(dataUrl, name) {
-            const a = document.createElement('a');
-            a.href = dataUrl;
-            a.download = name || 'photo.jpg';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
+        // Transforme l'URL Cloudinary pour forcer le téléchargement (fl_attachment)
+        function cloudinaryDownloadUrl(url) {
+            if (!url || !url.includes('cloudinary.com')) return url;
+            return url.replace('/upload/', '/upload/fl_attachment/');
         }
 
-        function downloadSelected() {
+        // Téléchargement via Blob pour assurer la compatibilité mobile
+        async function downloadPhoto(url, name) {
+            const dlUrl = cloudinaryDownloadUrl(url);
+            try {
+                showToast('Téléchargement en cours...', 'info');
+                const response = await fetch(dlUrl);
+                const blob = await response.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = blobUrl;
+                a.download = name || 'photo.jpg';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+                showToast('Photo téléchargée !', 'success');
+            } catch (err) {
+                // Fallback: ouvrir dans un nouvel onglet avec fl_attachment
+                console.warn('Fetch impossible, ouverture directe:', err);
+                window.open(dlUrl, '_blank');
+                showToast('Appuyez longuement sur l\'image pour l\'enregistrer.', 'info');
+            }
+        }
+
+        async function downloadSelected() {
             if (!selectedIndices.size) return;
             const photos = clientSession.photos || [];
             const selected = [...selectedIndices].sort();
-            let delay = 0;
-            selected.forEach(idx => {
-                if (!photos[idx]) return;
-                setTimeout(() => {
-                    downloadPhoto(photos[idx].dataUrl, photos[idx].name);
-                }, delay);
-                delay += 300;
-            });
             showToast(`Téléchargement de ${selected.length} photo${selected.length !== 1 ? 's' : ''} en cours...`, 'success');
+            for (const idx of selected) {
+                if (!photos[idx]) continue;
+                await downloadPhoto(photos[idx].dataUrl, photos[idx].name);
+                // Petite pause entre chaque pour ne pas saturer le système
+                await new Promise(r => setTimeout(r, 400));
+            }
         }
 
         // ── Lightbox ──────────────────────────────────────────────
@@ -326,11 +345,10 @@
             openLightbox(lbIndex);
         }
 
-        function downloadLbPhoto() {
+        async function downloadLbPhoto() {
             const photos = clientSession.photos || [];
             if (!photos[lbIndex]) return;
-            downloadPhoto(photos[lbIndex].dataUrl, photos[lbIndex].name);
-            showToast('Photo téléchargée !', 'success');
+            await downloadPhoto(photos[lbIndex].dataUrl, photos[lbIndex].name);
         }
 
         // Keyboard navigation

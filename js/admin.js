@@ -198,7 +198,10 @@ function renderSessionRow(s) {
     return `
       <div class="session-row" id="row-${s.code}">
         <div>
-          <div class="session-name">${escHtml(s.client_name)}</div>
+          <div class="session-name">
+            ${escHtml(s.client_name)}
+            ${window.currentUser?.role === 'super_admin' && s.admin_username ? `<span class="code-pill" style="font-size: 0.65rem; margin-left: 8px; vertical-align: middle;">par @${escHtml(s.admin_username)}</span>` : ''}
+          </div>
           <div class="session-meta">
             ${escHtml(s.type)} · Créée le ${formatDate(s.created_at)} · 
             Expire le ${formatDate(s.expires_at)}
@@ -499,24 +502,47 @@ async function confirmUpload() {
     const btn = document.querySelector('#uploadModal .btn-primary');
     if (btn) {
         btn.dataset.originalText = btn.innerHTML;
-        btn.innerHTML = 'Opération en cours...';
+        btn.innerHTML = 'Préparation...';
         btn.disabled = true;
     }
 
+    // Barre de progression dans le modal
+    let progressBar = document.getElementById('uploadProgressBar');
+    if (!progressBar) {
+        progressBar = document.createElement('div');
+        progressBar.id = 'uploadProgressBar';
+        progressBar.style.cssText = 'width:100%;height:6px;background:rgba(255,255,255,0.1);border-radius:3px;margin-top:12px;overflow:hidden;';
+        progressBar.innerHTML = '<div id="uploadProgressFill" style="height:100%;width:0%;background:var(--gold);transition:width .3s ease;"></div>';
+        btn.parentNode.insertBefore(progressBar, btn.nextSibling);
+    }
+    const fill = document.getElementById('uploadProgressFill');
+    let done = 0;
+    const updateProgress = () => {
+        done++;
+        const pct = Math.round((done / valid.length) * 100);
+        if (fill) fill.style.width = pct + '%';
+        if (btn) btn.innerHTML = `Envoi ${done}/${valid.length}...`;
+    };
+
     try {
+        // Upload en parallèle vers Cloudinary (max 4 simultanés pour ne pas saturer)
+        const BATCH = 4;
         const uploadedPhotos = [];
-        for (let i = 0; i < valid.length; i++) {
-            const p = valid[i];
-            showToast(`Envoi au cloud... (${i+1}/${valid.length})`, 'info', 2000);
-            const clData = await uploadToCloudinary(p.dataUrl);
-            uploadedPhotos.push({
-                name: p.name,
-                dataUrl: clData.secure_url,
-                size: clData.bytes || p.size
-            });
+        for (let i = 0; i < valid.length; i += BATCH) {
+            const batch = valid.slice(i, i + BATCH);
+            const results = await Promise.all(batch.map(async p => {
+                const clData = await uploadToCloudinary(p.dataUrl);
+                updateProgress();
+                return {
+                    name: p.name,
+                    dataUrl: clData.secure_url,
+                    size: clData.bytes || p.size
+                };
+            }));
+            uploadedPhotos.push(...results);
         }
 
-        showToast('Enregistrement final...', 'info', 2000);
+        if (btn) btn.innerHTML = 'Finalisation...';
         await addPhotos(currentSessionCode, uploadedPhotos);
         closeUploadModal();
         showToast(`${valid.length} photo${valid.length !== 1 ? 's' : ''} ajoutée${valid.length !== 1 ? 's' : ''} !`, 'success');
@@ -535,6 +561,7 @@ async function confirmUpload() {
             btn.innerHTML = btn.dataset.originalText;
             btn.disabled = false;
         }
+        if (fill) fill.style.width = '0%';
     }
 }
 
@@ -710,8 +737,11 @@ async function showSuperAdmin() {
                     </td>
                     <td style="padding: 16px; text-align: right;">
                         ${u.id !== window.currentUser.id ? `
-                            <button class="btn-danger" style="padding: 6px 12px; font-size: 0.8rem;" onclick="handleDeleteUser(${u.id})">
-                                🗑 Supprimer
+                            <button class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem; margin-right: 4px;" onclick="openEditUserModal(${u.id}, '${escHtml(u.name || '')}', '${escHtml(u.email || '')}', '${escHtml(u.username)}')">
+                                ✏️ Éditer
+                            </button>
+                            <button class="btn-danger" style="padding: 6px 12px; font-size: 0.8rem;" onclick="handleDeleteUser(${u.id})" title="Supprimer">
+                                🗑
                             </button>
                         ` : '<span style="color:var(--text-muted); font-size:0.85rem;">(Vous)</span>'}
                     </td>
@@ -731,6 +761,81 @@ async function handleDeleteUser(id) {
         showSuperAdmin(); // Rafraichir
     } catch (error) {
         showToast('Erreur: ' + error.message, 'error');
+    }
+}
+
+function openEditUserModal(id, name, email, username) {
+    // Vérifier si la div existe déjà
+    let modal = document.getElementById('editUserModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'editUserModal';
+        // Petit style inline simple pour le fond de la modale
+        modal.style.position = 'fixed';
+        modal.style.top = '0'; modal.style.left = '0'; modal.style.width = '100%'; modal.style.height = '100%';
+        modal.style.backgroundColor = 'rgba(0,0,0,0.8)';
+        modal.style.display = 'flex';
+        modal.style.alignItems = 'center';
+        modal.style.justifyContent = 'center';
+        modal.style.zIndex = '1000';
+        document.body.appendChild(modal);
+    }
+    
+    modal.innerHTML = `
+        <div style="background: var(--surface); padding: 24px; border-radius: var(--radius-lg); width: 100%; max-width: 400px; border: 1px solid rgba(255,255,255,0.1);">
+            <h3 style="margin-bottom: 16px;">Modifier l'utilisateur</h3>
+            <form onsubmit="handleEditUserSubmit(event, ${id})">
+                <div class="form-group">
+                    <label>Nom complet</label>
+                    <input type="text" id="editUserName" value="${name}" class="input-field" placeholder="ex: Studio Photobox">
+                </div>
+                <div class="form-group">
+                    <label>Email de contact</label>
+                    <input type="email" id="editUserEmail" value="${email}" class="input-field" placeholder="ex: contact@studio.fr">
+                </div>
+                <div class="form-group">
+                    <label>Identifiant</label>
+                    <input type="text" id="editUserUsername" value="${username}" required class="input-field">
+                </div>
+                <div class="form-group">
+                    <label>Nouveau mot de passe <span style="font-size:0.8rem;color:var(--text-muted);">(Laisser vide pour ne pas changer)</span></label>
+                    <input type="text" id="editUserPassword" class="input-field" placeholder="Nouveau mot de passe">
+                </div>
+                <div style="display: flex; gap: 8px; margin-top: 24px;">
+                    <button type="submit" class="btn-primary" style="flex: 1;">Enregistrer</button>
+                    <button type="button" class="btn-secondary" style="flex: 1;" onclick="document.getElementById('editUserModal').style.display='none'">Annuler</button>
+                </div>
+            </form>
+        </div>
+    `;
+    modal.style.display = 'flex';
+}
+
+async function handleEditUserSubmit(event, id) {
+    event.preventDefault();
+    const saveBtn = event.target.querySelector('button[type="submit"]');
+    saveBtn.disabled = true;
+    saveBtn.innerText = 'Enregistrement...';
+    
+    const data = {
+        name: document.getElementById('editUserName').value.trim(),
+        email: document.getElementById('editUserEmail').value.trim(),
+        username: document.getElementById('editUserUsername').value.trim(),
+    };
+    
+    const pwd = document.getElementById('editUserPassword').value;
+    if (pwd) data.password = pwd;
+    
+    try {
+        await updateSuperUser(id, data);
+        showToast('Utilisateur mis à jour !', 'success');
+        document.getElementById('editUserModal').style.display = 'none';
+        showSuperAdmin(); // Rafraichir le tableau
+    } catch (e) {
+        showToast(e.message, 'error');
+    } finally {
+        saveBtn.disabled = false;
+        saveBtn.innerText = 'Enregistrer';
     }
 }
 
