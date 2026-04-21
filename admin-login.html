@@ -24,15 +24,21 @@
             <div class="logo" style="justify-content:center; margin-bottom:10px; color: var(--gold);">
                 DKprodStudio
             </div>
-            <p>Connectez-vous pour gérer vos séances</p>
+            <p>Espace Studio – Gérer vos séances</p>
+        </div>
+
+        <div class="auth-tabs" style="display:flex; margin-bottom:20px; border-bottom:1px solid rgba(255,255,255,0.1);">
+            <button id="tabLogin" class="tab-btn active" style="flex:1; background:none; border:none; color:#fff; padding:10px; cursor:pointer; font-family:var(--font-primary); font-weight:600; border-bottom:2px solid var(--gold);">Se connecter</button>
+            <button id="tabRegister" class="tab-btn" style="flex:1; background:none; border:none; color:rgba(255,255,255,0.6); padding:10px; cursor:pointer; font-family:var(--font-primary); font-weight:600; border-bottom:2px solid transparent;">S'inscrire</button>
         </div>
 
         <div id="alertBox"></div>
 
+        <!-- FORMULAIRE DE CONNEXION -->
         <form class="auth-form" id="loginForm" onsubmit="doLogin(event)">
             <div class="form-group">
                 <label class="form-label" for="loginUser">Identifiant</label>
-                <input type="text" id="loginUser" class="form-input" placeholder="ex: admin" autocomplete="username"
+                <input type="text" id="loginUser" class="form-input" placeholder="ex: studio_dk" autocomplete="username"
                     required />
             </div>
             <div class="form-group">
@@ -48,9 +54,37 @@
             </button>
         </form>
 
-        <p class="auth-footer-link">
-            <small>Identifiant par défaut : <strong>admin</strong> / <strong>studio123</strong></small>
-        </p>
+        <!-- FORMULAIRE D'INSCRIPTION -->
+        <form class="auth-form" id="registerForm" onsubmit="doRegister(event)" style="display:none;">
+            <div class="form-group">
+                <label class="form-label" for="regName">Nom d'utilisateur</label>
+                <input type="text" id="regName" class="form-input" placeholder="ex: Jean Dupont" autocomplete="name"
+                    required minlength="2" />
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="regUser">Email</label>
+                <input type="email" id="regUser" class="form-input" placeholder="ex: jean@studio.com" autocomplete="email"
+                    required />
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="regPass">Mot de passe</label>
+                <input type="password" id="regPass" class="form-input" placeholder="••••••••"
+                    autocomplete="new-password" required minlength="6" />
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="regPassConfirm">Confirmer le mot de passe</label>
+                <input type="password" id="regPassConfirm" class="form-input" placeholder="••••••••"
+                    autocomplete="new-password" required />
+            </div>
+            <button type="submit" class="btn-primary" style="width:100%; justify-content:center; background-color: #2e8b57; border-color: #2e8b57;">
+                <span>Créer mon studio</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20 6L9 17l-5-5"/>
+                </svg>
+            </button>
+        </form>
+
+
         <p class="auth-footer-link">
             <a href="index.html">← Retour à l'accueil clients</a>
         </p>
@@ -68,11 +102,41 @@
             }
         })();
 
+        // TAB SWITCHING LOGIC
+        const tabLogin = document.getElementById('tabLogin');
+        const tabRegister = document.getElementById('tabRegister');
+        const loginForm = document.getElementById('loginForm');
+        const registerForm = document.getElementById('registerForm');
+        const alertBox = document.getElementById('alertBox');
+
+        function switchTab(tab) {
+            alertBox.innerHTML = ''; // reset alerts
+            if (tab === 'login') {
+                tabLogin.style.color = '#fff';
+                tabLogin.style.borderBottomColor = 'var(--gold)';
+                tabRegister.style.color = 'rgba(255,255,255,0.6)';
+                tabRegister.style.borderBottomColor = 'transparent';
+                
+                loginForm.style.display = 'block';
+                registerForm.style.display = 'none';
+            } else {
+                tabRegister.style.color = '#fff';
+                tabRegister.style.borderBottomColor = 'var(--gold)';
+                tabLogin.style.color = 'rgba(255,255,255,0.6)';
+                tabLogin.style.borderBottomColor = 'transparent';
+                
+                registerForm.style.display = 'block';
+                loginForm.style.display = 'none';
+            }
+        }
+
+        tabLogin.addEventListener('click', () => switchTab('login'));
+        tabRegister.addEventListener('click', () => switchTab('register'));
+
         async function doLogin(e) {
             e.preventDefault();
             const user = document.getElementById('loginUser').value.trim();
             const pass = document.getElementById('loginPass').value;
-            const box = document.getElementById('alertBox');
 
             try {
                 const result = await login(user, pass);
@@ -81,8 +145,33 @@
                     setTimeout(() => window.location.href = 'admin.html', 600);
                 }
             } catch (error) {
-                box.innerHTML = '<div class="alert alert-error">⚠ Identifiant ou mot de passe incorrect.</div>';
-                setTimeout(() => box.innerHTML = '', 3000);
+                alertBox.innerHTML = '<div class="alert alert-error">⚠ Identifiant ou mot de passe incorrect.</div>';
+                setTimeout(() => alertBox.innerHTML = '', 3000);
+            }
+        }
+
+        async function doRegister(e) {
+            e.preventDefault();
+            const name = document.getElementById('regName').value.trim();
+            const email = document.getElementById('regUser').value.trim();
+            const pass = document.getElementById('regPass').value;
+            const passConfirm = document.getElementById('regPassConfirm').value;
+
+            if (pass !== passConfirm) {
+                alertBox.innerHTML = '<div class="alert alert-error">⚠ Les mots de passe ne correspondent pas.</div>';
+                setTimeout(() => alertBox.innerHTML = '', 3000);
+                return;
+            }
+
+            try {
+                const result = await register(name, email, pass);
+                if (result.token) {
+                    showToast('Studio créé avec succès !', 'success');
+                    setTimeout(() => window.location.href = 'admin.html', 600);
+                }
+            } catch (error) {
+                alertBox.innerHTML = `<div class="alert alert-error">⚠ ${error.message || 'Erreur lors de l\'inscription.'}</div>`;
+                setTimeout(() => alertBox.innerHTML = '', 3000);
             }
         }
     </script>

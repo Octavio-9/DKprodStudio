@@ -59,11 +59,25 @@ async function createTables() {
     await client.query(`
       CREATE TABLE IF NOT EXISTS admins (
         id SERIAL PRIMARY KEY,
+        name VARCHAR(100),
+        email VARCHAR(255) UNIQUE,
         username VARCHAR(50) UNIQUE NOT NULL,
         password_hash VARCHAR(255) NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    // Migration: ajouter name et email si absents
+    await client.query('SAVEPOINT migration_admin_name');
+    try {
+      await client.query('ALTER TABLE admins ADD COLUMN name VARCHAR(100)');
+      await client.query('RELEASE SAVEPOINT migration_admin_name');
+    } catch (e) { await client.query('ROLLBACK TO SAVEPOINT migration_admin_name'); }
+    await client.query('SAVEPOINT migration_admin_email');
+    try {
+      await client.query('ALTER TABLE admins ADD COLUMN email VARCHAR(255) UNIQUE');
+      await client.query('RELEASE SAVEPOINT migration_admin_email');
+    } catch (e) { await client.query('ROLLBACK TO SAVEPOINT migration_admin_email'); }
 
     // Table des séances
     await client.query(`
@@ -74,9 +88,27 @@ async function createTables() {
         type VARCHAR(100) NOT NULL,
         note TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        expires_at TIMESTAMP NOT NULL
+        expires_at TIMESTAMP NOT NULL,
+        admin_id INT REFERENCES admins(id) ON DELETE CASCADE
       )
     `);
+
+    // Migration pour les bases existantes (utilise SAVEPOINT pour ne pas annuler toute la transaction)
+    await client.query('SAVEPOINT migration_admin_id');
+    try {
+      await client.query('ALTER TABLE sessions ADD COLUMN admin_id INT REFERENCES admins(id) ON DELETE CASCADE');
+      
+      // Assigner les sessions existantes au premier admin (s'il y en a) pour éviter les incohérences
+      const { rows: adminsFound } = await client.query('SELECT id FROM admins ORDER BY id ASC LIMIT 1');
+      if (adminsFound.length > 0) {
+        await client.query('UPDATE sessions SET admin_id = $1 WHERE admin_id IS NULL', [adminsFound[0].id]);
+      }
+      await client.query('RELEASE SAVEPOINT migration_admin_id');
+    } catch (e) {
+      // La colonne existe déjà — on rollback uniquement ce savepoint
+      await client.query('ROLLBACK TO SAVEPOINT migration_admin_id');
+    }
+
     
     await client.query('CREATE INDEX IF NOT EXISTS idx_code ON sessions(code)');
     await client.query('CREATE INDEX IF NOT EXISTS idx_expires ON sessions(expires_at)');
@@ -136,6 +168,49 @@ function authenticateToken(req, res, next) {
 // ── Routes API ──────────────────────────────────────────────────
 
 // Authentification
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+    
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: 'Nom, email et mot de passe requis' });
+    }
+
+    // Vérifier que l'email n'est pas déjà utilisé
+    const { rows: existingEmail } = await pool.query('SELECT id FROM admins WHERE email = $1', [email]);
+    if (existingEmail.length > 0) {
+      return res.status(400).json({ error: 'Cet email est déjà utilisé' });
+    }
+
+    // Générer un username unique depuis l'email
+    const baseUsername = email.split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '_');
+    let username = baseUsername;
+    let suffix = 1;
+    while (true) {
+      const { rows: existing } = await pool.query('SELECT id FROM admins WHERE username = $1', [username]);
+      if (existing.length === 0) break;
+      username = `${baseUsername}_${suffix++}`;
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const { rows: newUser } = await pool.query(
+      'INSERT INTO admins (name, email, username, password_hash) VALUES ($1, $2, $3, $4) RETURNING id',
+      [name, email, username, passwordHash]
+    );
+
+    const token = jwt.sign(
+      { id: newUser[0].id, username, name, email },
+      process.env.JWT_SECRET || 'your-secret-key-change-in-production',
+      { expiresIn: '24h' }
+    );
+
+    res.json({ token, username, name, email });
+  } catch (error) {
+    console.error('Erreur register:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -157,12 +232,12 @@ app.post('/api/auth/login', async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: admin.id, username: admin.username },
+      { id: admin.id, username: admin.username, name: admin.name, email: admin.email },
       process.env.JWT_SECRET || 'your-secret-key-change-in-production',
       { expiresIn: '24h' }
     );
 
-    res.json({ token, username: admin.username });
+    res.json({ token, username: admin.username, name: admin.name, email: admin.email });
   } catch (error) {
     console.error('Erreur login:', error);
     res.status(500).json({ error: 'Erreur serveur' });
@@ -171,32 +246,43 @@ app.post('/api/auth/login', async (req, res) => {
 
 app.post('/api/auth/update', authenticateToken, async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { name, email, username, password } = req.body;
     
     let query = 'UPDATE admins SET ';
     const params = [];
     let paramIndex = 1;
+    const setClauses = [];
     
-    if (username) {
-      query += `username = $${paramIndex}`;
-      params.push(username);
-      paramIndex++;
+    if (name) { setClauses.push(`name = $${paramIndex++}`); params.push(name); }
+    if (email) { setClauses.push(`email = $${paramIndex++}`); params.push(email); }
+    if (username) { setClauses.push(`username = $${paramIndex++}`); params.push(username); }
+    if (password) { 
+        const passwordHash = await bcrypt.hash(password, 10);
+        setClauses.push(`password_hash = $${paramIndex++}`); params.push(passwordHash); 
     }
     
-    if (password) {
-      const passwordHash = await bcrypt.hash(password, 10);
-      if (username) query += ', ';
-      query += `password_hash = $${paramIndex}`;
-      params.push(passwordHash);
-      paramIndex++;
-    }
+    if (setClauses.length === 0) return res.json({ message: 'Rien à mettre à jour' });
     
+    query += setClauses.join(', ');
     query += ` WHERE id = $${paramIndex}`;
     params.push(req.user.id);
     
+    // Check if new email/username is already taken
+    if (email || username) {
+        let checkQuery = 'SELECT id FROM admins WHERE id != $1 AND (';
+        const checkParams = [req.user.id];
+        const conditions = [];
+        if (email) { conditions.push(`email = $2`); checkParams.push(email); }
+        if (username) { conditions.push(`username = $${checkParams.length + 1}`); checkParams.push(username); }
+        checkQuery += conditions.join(' OR ') + ')';
+        
+        const { rows } = await pool.query(checkQuery, checkParams);
+        if (rows.length > 0) return res.status(400).json({ error: 'Cet email ou identifiant est déjà utilisé' });
+    }
+    
     await pool.query(query, params);
     
-    res.json({ message: 'Identifiants mis à jour' });
+    res.json({ message: 'Informations mises à jour' });
   } catch (error) {
     console.error('Erreur update auth:', error);
     res.status(500).json({ error: 'Erreur serveur' });
@@ -214,8 +300,9 @@ app.get('/api/sessions', authenticateToken, async (req, res) => {
     const { rows: sessions } = await pool.query(`
       SELECT s.*
       FROM sessions s
+      WHERE s.admin_id = $1
       ORDER BY s.created_at DESC
-    `);
+    `, [req.user.id]);
 
     // Récupérer les photos pour chaque session
     for (let session of sessions) {
@@ -304,9 +391,9 @@ app.post('/api/sessions', authenticateToken, async (req, res) => {
     expiresAt.setDate(expiresAt.getDate() + (expiryDays || 30));
 
     const result = await pool.query(
-      `INSERT INTO sessions (code, client_name, type, note, expires_at) 
-       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-      [code, clientName, type, note || null, expiresAt]
+      `INSERT INTO sessions (code, client_name, type, note, expires_at, admin_id) 
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+      [code, clientName, type, note || null, expiresAt, req.user.id]
     );
 
     res.json({ 
@@ -329,7 +416,11 @@ app.delete('/api/sessions/:code', authenticateToken, async (req, res) => {
   try {
     const { code } = req.params;
     
-    await pool.query('DELETE FROM sessions WHERE code = $1', [code]);
+    const result = await pool.query('DELETE FROM sessions WHERE code = $1 AND admin_id = $2', [code, req.user.id]);
+    
+    if (result.rowCount === 0) {
+      return res.status(403).json({ error: 'Accès refusé ou séance introuvable' });
+    }
     
     res.json({ message: 'Séance supprimée' });
   } catch (error) {
@@ -346,8 +437,8 @@ app.post('/api/sessions/:code/photos', authenticateToken, async (req, res) => {
     
     // Récupérer la session
     const { rows: sessions } = await pool.query(
-      'SELECT id FROM sessions WHERE code = $1',
-      [code]
+      'SELECT id FROM sessions WHERE code = $1 AND admin_id = $2',
+      [code, req.user.id]
     );
     
     if (sessions.length === 0) {
@@ -384,7 +475,8 @@ app.delete('/api/sessions/:code/photos/:photoId', authenticateToken, async (req,
       WHERE photos.session_id = sessions.id 
       AND sessions.code = $1 
       AND photos.id = $2
-    `, [code, photoId]);
+      AND sessions.admin_id = $3
+    `, [code, photoId, req.user.id]);
     
     res.json({ message: 'Photo supprimée' });
   } catch (error) {
@@ -402,7 +494,8 @@ app.delete('/api/sessions/:code/photos', authenticateToken, async (req, res) => 
       USING sessions 
       WHERE photos.session_id = sessions.id 
       AND sessions.code = $1
-    `, [code]);
+      AND sessions.admin_id = $2
+    `, [code, req.user.id]);
     
     res.json({ message: 'Toutes les photos supprimées' });
   } catch (error) {
@@ -414,10 +507,16 @@ app.delete('/api/sessions/:code/photos', authenticateToken, async (req, res) => 
 // Statistiques
 app.get('/api/stats', authenticateToken, async (req, res) => {
   try {
-    const { rows: sessionCount } = await pool.query('SELECT COUNT(*) as count FROM sessions');
-    const { rows: photoCount } = await pool.query('SELECT COUNT(*) as count FROM photos');
+    const { rows: sessionCount } = await pool.query('SELECT COUNT(*) as count FROM sessions WHERE admin_id = $1', [req.user.id]);
+    const { rows: photoCount } = await pool.query(`
+      SELECT COUNT(photos.id) as count 
+      FROM photos 
+      JOIN sessions ON photos.session_id = sessions.id 
+      WHERE sessions.admin_id = $1
+    `, [req.user.id]);
     const { rows: recentSession } = await pool.query(
-      'SELECT * FROM sessions ORDER BY created_at DESC LIMIT 1'
+      'SELECT * FROM sessions WHERE admin_id = $1 ORDER BY created_at DESC LIMIT 1',
+      [req.user.id]
     );
     
     res.json({

@@ -38,7 +38,7 @@ function renderLayout() {
           <span class="icon">📁</span> Séances
         </button>
         <div class="sidebar-divider"></div>
-        <button class="sidebar-item" onclick="openSettings()">
+        <button class="sidebar-item" id="navSettings" onclick="showSettingsTab()">
           <span class="icon">⚙️</span> Paramètres
         </button>
         <a href="index.html" class="sidebar-item" target="_blank">
@@ -52,6 +52,8 @@ function renderLayout() {
       <!-- Main -->
       <main class="main-content" id="mainContent">
         <div id="dashView"></div>
+        <div id="sessionsView" style="display:none;"></div>
+        <div id="settingsView" style="display:none;"></div>
         <div id="sessionDetailView" class="session-detail"></div>
       </main>
     </div>
@@ -63,9 +65,10 @@ function renderLayout() {
 function setSidebarActive(tab) {
     const dash = document.getElementById('navDashboard');
     const sessionsBtn = document.getElementById('navSessions');
-    if (!dash || !sessionsBtn) return;
-    dash.classList.toggle('active', tab === 'dashboard');
-    sessionsBtn.classList.toggle('active', tab === 'sessions');
+    const settingsBtn = document.getElementById('navSettings');
+    if (dash) dash.classList.toggle('active', tab === 'dashboard');
+    if (sessionsBtn) sessionsBtn.classList.toggle('active', tab === 'sessions');
+    if (settingsBtn) settingsBtn.classList.toggle('active', tab === 'settings');
 }
 
 async function showDashboardTab() {
@@ -75,27 +78,32 @@ async function showDashboardTab() {
 
 async function showSessionsTab() {
     setSidebarActive('sessions');
-    await showDashboard();
+    await showSessions();
 }
 
-// ── Dashboard ─────────────────────────────────────────────────
+async function showSettingsTab() {
+    setSidebarActive('settings');
+    await showSettings();
+}
+
 async function showDashboard() {
     currentView = 'dashboard';
     currentSessionCode = null;
     
-    // Charger les sessions depuis l'API
     const sessions = await getSessions();
     const totalPhotos = sessions.reduce((a, s) => a + (s.photos || []).length, 0);
-    const recent = [...sessions].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 3);
+    const recent = [...sessions].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 4);
 
     document.getElementById('dashView').style.display = 'block';
+    document.getElementById('sessionsView').style.display = 'none';
+    document.getElementById('settingsView').style.display = 'none';
     document.getElementById('sessionDetailView').classList.remove('active');
 
     document.getElementById('dashView').innerHTML = `
     <div class="page-header">
       <div>
         <h1 class="page-title">Tableau de bord</h1>
-        <p class="page-subtitle">Gérez les séances photo et les accès clients</p>
+        <p class="page-subtitle">Bienvenue, <strong style="color:var(--gold);">${window.currentUser?.name || window.currentUser?.username || 'Admin'}</strong> 👋.</p>
       </div>
       <button class="btn-primary" onclick="openCreateModal()">
         ✦ Nouvelle séance
@@ -121,8 +129,42 @@ async function showDashboard() {
       </div>
     </div>
 
-    <!-- Sessions List -->
-    <div class="section-title">📁 Toutes les séances</div>
+    <!-- Recent Sessions -->
+    <div class="section-title">🕒 Séances récentes</div>
+    <div class="sessions-list">
+      ${recent.length === 0 ? `
+        <div class="empty-state">
+          <div class="empty-icon">📂</div>
+          <div class="empty-title">Aucune séance pour l'instant</div>
+        </div>
+      ` : recent.map(s => renderSessionRow(s)).join('')}
+    </div>
+  `;
+}
+
+// ── Sessions View ──────────────────────────────────────────────
+async function showSessions() {
+    currentView = 'sessions';
+    currentSessionCode = null;
+    
+    const sessions = await getSessions();
+
+    document.getElementById('dashView').style.display = 'none';
+    document.getElementById('sessionsView').style.display = 'block';
+    document.getElementById('settingsView').style.display = 'none';
+    document.getElementById('sessionDetailView').classList.remove('active');
+
+    document.getElementById('sessionsView').innerHTML = `
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Toutes les séances</h1>
+        <p class="page-subtitle">Gérez toutes vos séances et accès clients.</p>
+      </div>
+      <button class="btn-primary" onclick="openCreateModal()">
+        ✦ Nouvelle séance
+      </button>
+    </div>
+
     <div class="sessions-list">
       ${sessions.length === 0 ? `
         <div class="empty-state">
@@ -130,28 +172,32 @@ async function showDashboard() {
           <div class="empty-title">Aucune séance pour l'instant</div>
           <p class="empty-text">Créez votre première séance pour commencer.</p>
         </div>
-      ` : sessions.map(s => `
-        <div class="session-row" id="row-${s.code}">
-          <div>
-            <div class="session-name">${escHtml(s.client_name)}</div>
-            <div class="session-meta">
-              ${escHtml(s.type)} · Créée le ${formatDate(s.created_at)} · 
-              Expire le ${formatDate(s.expires_at)}
-              ${s.note ? `· <em>${escHtml(s.note)}</em>` : ''}
-            </div>
-          </div>
-          <div class="photo-count">📷 ${(s.photos || []).length} photo${(s.photos || []).length !== 1 ? 's' : ''}</div>
-          <div class="session-code-badge" onclick="copyText('${s.code}')" title="Copier le code">${s.code}</div>
-          <div class="session-actions">
-            <button class="btn-secondary" onclick="openSessionDetail('${s.code}')" title="Gérer les photos" style="font-size:.8rem;padding:8px 14px;">
-              📸 Gérer
-            </button>
-            <button class="btn-danger" onclick="deleteSessionHandler('${s.code}')" title="Supprimer">🗑</button>
-          </div>
-        </div>
-      `).join('')}
+      ` : sessions.map(s => renderSessionRow(s)).join('')}
     </div>
   `;
+}
+
+function renderSessionRow(s) {
+    return `
+      <div class="session-row" id="row-${s.code}">
+        <div>
+          <div class="session-name">${escHtml(s.client_name)}</div>
+          <div class="session-meta">
+            ${escHtml(s.type)} · Créée le ${formatDate(s.created_at)} · 
+            Expire le ${formatDate(s.expires_at)}
+            ${s.note ? `· <em>${escHtml(s.note)}</em>` : ''}
+          </div>
+        </div>
+        <div class="photo-count">📷 ${(s.photos || []).length} photo${(s.photos || []).length !== 1 ? 's' : ''}</div>
+        <div class="session-code-badge" onclick="copyText('${s.code}')" title="Copier le code">${s.code}</div>
+        <div class="session-actions">
+          <button class="btn-secondary" onclick="openSessionDetail('${s.code}')" title="Gérer les photos" style="font-size:.8rem;padding:8px 14px;">
+            📸 Gérer
+          </button>
+          <button class="btn-danger" onclick="deleteSessionHandler('${s.code}')" title="Supprimer">🗑</button>
+        </div>
+      </div>
+    `;
 }
 
 // ── Session Detail ────────────────────────────────────────────
@@ -165,6 +211,8 @@ async function openSessionDetail(code) {
     }
 
     document.getElementById('dashView').style.display = 'none';
+    document.getElementById('sessionsView').style.display = 'none';
+    document.getElementById('settingsView').style.display = 'none';
     const detail = document.getElementById('sessionDetailView');
     detail.classList.add('active');
     renderSessionDetail(session);
@@ -402,12 +450,55 @@ function updateUploadCount() {
     document.getElementById('uploadCount').textContent = count ? `${count} photo${count !== 1 ? 's' : ''} prête${count !== 1 ? 's' : ''}` : '';
 }
 
+// ── Cloudinary Upload ─────────────────────────────────────────
+async function uploadToCloudinary(dataUrl) {
+    const cloudName = 'dnpyeq0jm';
+    const uploadPreset = 'Studio_Photo';
+    const url = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
+
+    const formData = new FormData();
+    formData.append('file', dataUrl);
+    formData.append('upload_preset', uploadPreset);
+
+    const res = await fetch(url, {
+        method: 'POST',
+        body: formData
+    });
+    
+    if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error?.message || 'Erreur lors de l\'upload sur Cloudinary');
+    }
+    
+    return await res.json();
+}
+
 async function confirmUpload() {
     const valid = pendingUploadFiles.filter(Boolean);
     if (!valid.length) { showToast('Aucune photo à enregistrer.', 'error'); return; }
 
+    const btn = document.querySelector('#uploadModal .btn-primary');
+    if (btn) {
+        btn.dataset.originalText = btn.innerHTML;
+        btn.innerHTML = 'Opération en cours...';
+        btn.disabled = true;
+    }
+
     try {
-        await addPhotos(currentSessionCode, valid);
+        const uploadedPhotos = [];
+        for (let i = 0; i < valid.length; i++) {
+            const p = valid[i];
+            showToast(`Envoi au cloud... (${i+1}/${valid.length})`, 'info', 2000);
+            const clData = await uploadToCloudinary(p.dataUrl);
+            uploadedPhotos.push({
+                name: p.name,
+                dataUrl: clData.secure_url,
+                size: clData.bytes || p.size
+            });
+        }
+
+        showToast('Enregistrement final...', 'info', 2000);
+        await addPhotos(currentSessionCode, uploadedPhotos);
         closeUploadModal();
         showToast(`${valid.length} photo${valid.length !== 1 ? 's' : ''} ajoutée${valid.length !== 1 ? 's' : ''} !`, 'success');
 
@@ -418,7 +509,13 @@ async function confirmUpload() {
             await showDashboard();
         }
     } catch (error) {
+        console.error(error);
         showToast('Erreur lors de l\'ajout des photos', 'error');
+    } finally {
+        if (btn && btn.dataset.originalText) {
+            btn.innerHTML = btn.dataset.originalText;
+            btn.disabled = false;
+        }
     }
 }
 
@@ -431,18 +528,80 @@ function copyText(text) {
     });
 }
 
-// ── Settings modal (simple) ──────────────────────────────────
-async function openSettings() {
-    const newUser = prompt('Nouvel identifiant :', 'admin');
-    if (newUser === null) return;
-    const newPass = prompt('Nouveau mot de passe :');
-    if (newPass === null || !newPass) return;
+// ── Settings View ───────────────────────────────────────────
+async function showSettings() {
+    currentView = 'settings';
     
+    document.getElementById('dashView').style.display = 'none';
+    document.getElementById('sessionsView').style.display = 'none';
+    document.getElementById('sessionDetailView').classList.remove('active');
+    
+    const view = document.getElementById('settingsView');
+    view.style.display = 'block';
+    
+    view.innerHTML = `
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Paramètres</h1>
+        <p class="page-subtitle">Modifiez vos informations de connexion et votre profil.</p>
+      </div>
+    </div>
+    
+    <form id="settingsForm" onsubmit="handleUpdateSettings(event)" style="max-width: 500px; padding: 24px; border-radius: var(--radius-lg); background: rgba(201,168,76,.06); border: 1px solid rgba(201,168,76,.2); display: flex; flex-direction: column; gap: 16px;">
+        <div class="form-group">
+            <label class="form-label">Nom complet</label>
+            <input type="text" id="settingName" class="form-input" value="${escHtml(window.currentUser?.name || '')}" placeholder="Ex: Studio DK">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Email</label>
+            <input type="email" id="settingEmail" class="form-input" value="${escHtml(window.currentUser?.email || '')}" placeholder="contact@studio.com">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Identifiant de connexion</label>
+            <input type="text" id="settingUsername" class="form-input" value="${escHtml(window.currentUser?.username || '')}" required>
+        </div>
+        <div style="margin: 10px 0; border-top: 1px dashed rgba(255,255,255,0.1);"></div>
+        <div class="form-group">
+            <label class="form-label">Nouveau mot de passe <span style="color:var(--text-muted);font-weight:normal;font-size:0.8rem;">(laisser vide pour ne pas modifier)</span></label>
+            <input type="password" id="settingPassword" class="form-input" placeholder="••••••••">
+        </div>
+        
+        <button type="submit" class="btn-primary" style="margin-top: 10px; justify-content: center;">
+            Enregistrer les modifications
+        </button>
+    </form>
+    `;
+}
+
+async function handleUpdateSettings(e) {
+    e.preventDefault();
+    const btn = e.target.querySelector('button[type="submit"]');
+    const oldText = btn.innerHTML;
+    btn.innerHTML = 'Enregistrement...';
+    btn.disabled = true;
+
     try {
-        await updateAuth(newUser.trim(), newPass);
-        showToast('Identifiants mis à jour !', 'success');
+        const payload = {
+            name: document.getElementById('settingName').value.trim(),
+            email: document.getElementById('settingEmail').value.trim(),
+            username: document.getElementById('settingUsername').value.trim()
+        };
+        const pass = document.getElementById('settingPassword').value;
+        if (pass) payload.password = pass;
+
+        await updateAuth(payload);
+        
+        // Mettre à jour l'utilisateur système
+        const auth = await verifyAuth();
+        if (auth.valid) window.currentUser = auth.user;
+
+        showToast('Informations mises à jour avec succès', 'success');
+        document.getElementById('settingPassword').value = '';
     } catch (error) {
-        showToast('Erreur lors de la mise à jour', 'error');
+        showToast(error.message || 'Erreur lors de la mise à jour', 'error');
+    } finally {
+        btn.innerHTML = oldText;
+        btn.disabled = false;
     }
 }
 

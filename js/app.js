@@ -54,5 +54,7 @@ async function requireAuth() {
     return false;
   }
   
+  window.currentUser = auth.user;
+  
   return true;
 }

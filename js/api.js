@@ -2,8 +2,8 @@
    api.js — API Client pour Photo Studio
    ============================================================ */
 
-const API_BASE_URL = window.location.origin.includes('localhost') 
-  ? 'http://localhost:3000/api' 
+const API_BASE_URL = window.location.origin.includes('localhost')
+  ? 'http://localhost:3000/api'
   : 'https://dkprodstudio-2.onrender.com/api';
 
 // ── Gestion du token JWT ────────────────────────────────────
@@ -23,7 +23,7 @@ function removeToken() {
 async function apiRequest(endpoint, options = {}) {
   const url = `${API_BASE_URL}${endpoint}`;
   const token = getToken();
-  
+
   const config = {
     headers: {
       'Content-Type': 'application/json',
@@ -36,11 +36,11 @@ async function apiRequest(endpoint, options = {}) {
   try {
     const response = await fetch(url, config);
     const data = await response.json();
-    
+
     if (!response.ok) {
       throw new Error(data.error || 'Erreur API');
     }
-    
+
     return data;
   } catch (error) {
     console.error('Erreur API:', error);
@@ -54,18 +54,31 @@ async function login(username, password) {
     method: 'POST',
     body: JSON.stringify({ username, password })
   });
-  
+
   if (data.token) {
     setToken(data.token);
   }
-  
+
   return data;
 }
 
-async function updateAuth(username, password) {
+async function register(name, email, password) {
+  const data = await apiRequest('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({ name, email, password })
+  });
+
+  if (data.token) {
+    setToken(data.token);
+  }
+
+  return data;
+}
+
+async function updateAuth(data) {
   return await apiRequest('/auth/update', {
     method: 'POST',
-    body: JSON.stringify({ username, password })
+    body: JSON.stringify(data)
   });
 }
 
