@@ -3,6 +3,8 @@ const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -12,7 +14,45 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(cors());
+// CORS — n'autoriser que l'origine de production ou localhost
+const allowedOrigins = [
+  'http://localhost:3000',
+  process.env.APP_URL,
+].filter(Boolean);
+app.use(cors({
+  origin: (origin, cb) => {
+    // Autoriser les requêtes sans origine (curl, Postman, même domaine)
+    if (!origin || allowedOrigins.some(o => origin.startsWith(o))) return cb(null, true);
+    return cb(new Error('CORS non autorisé'), false);
+  },
+  credentials: true
+}));
+
+// Helmet — ajoute les en-têtes de sécurité HTTP
+app.use(helmet({
+  contentSecurityPolicy: false, // Désactivé pour ne pas casser les scripts inline
+  crossOriginEmbedderPolicy: false
+}));
+
+// Rate limiting — anti brute-force sur les routes d'auth
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20,                   // max 20 tentatives par IP
+  message: { error: 'Trop de tentatives. Réessayez dans 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// Rate limiting global — protection générale de l'API
+const globalLimiter = rateLimit({
+  windowMs: 60 * 1000,  // 1 minute
+  max: 200,             // 200 requêtes max par IP par minute
+  message: { error: 'Trop de requêtes. Ralentissez.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+app.use('/api/', globalLimiter);
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(express.static('.'));
@@ -166,7 +206,15 @@ function authenticateToken(req, res, next) {
     return res.status(401).json({ error: 'Token manquant' });
   }
 
-  jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key-change-in-production', (err, user) => {
+  jwt.verify(process.env.JWT_SECRET, (err) => {
+    // Bloquer si JWT_SECRET n'est pas défini en production
+    if (err && process.env.NODE_ENV === 'production') {
+      console.error('CRITIQUE: JWT_SECRET non défini en production !');
+      process.exit(1);
+    }
+  });
+
+  jwt.verify(token, process.env.JWT_SECRET || 'dev-secret-local-only', (err, user) => {
     if (err) {
       return res.status(403).json({ error: 'Token invalide' });
     }
@@ -178,7 +226,7 @@ function authenticateToken(req, res, next) {
 // ── Routes API ──────────────────────────────────────────────────
 
 // Authentification
-app.post('/api/auth/register', async (req, res) => {
+app.post('/api/auth/register', authLimiter, async (req, res) => {
   try {
     const { name, email, password } = req.body;
     
@@ -222,7 +270,7 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', authLimiter, async (req, res) => {
   try {
     const { username, password } = req.body;
     
