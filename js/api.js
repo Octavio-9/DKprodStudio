@@ -91,12 +91,12 @@ async function verifyAuth() {
 }
 
 // ── Sessions ────────────────────────────────────────────────
-async function getSessions() {
+async function getSessions(page = 1, limit = 20) {
   try {
-    return await apiRequest('/sessions');
+    return await apiRequest(`/sessions?page=${page}&limit=${limit}`);
   } catch (error) {
     console.error('Erreur getSessions:', error);
-    return [];
+    return { data: [], pagination: { total: 0, page, limit, totalPages: 0 } };
   }
 }
 
