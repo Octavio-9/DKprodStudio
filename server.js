@@ -13,6 +13,9 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Trust proxy pour obtenir la vraie IP du client derrière un reverse proxy (Render, Nginx, etc.)
+app.set('trust proxy', 1);
+
 // Middleware
 // CORS — n'autoriser que l'origine de production ou localhost
 const allowedOrigins = [
@@ -21,8 +24,10 @@ const allowedOrigins = [
 ].filter(Boolean);
 app.use(cors({
   origin: (origin, cb) => {
-    // Autoriser les requêtes sans origine (curl, Postman, même domaine)
-    if (!origin || allowedOrigins.some(o => origin.startsWith(o))) return cb(null, true);
+    // Autoriser les requêtes sans origine ou provenant de Render / localhost
+    if (!origin || origin.includes('localhost') || origin.includes('onrender.com') || origin.includes('netlify.app') || allowedOrigins.some(o => origin.startsWith(o))) {
+        return cb(null, true);
+    }
     return cb(new Error('CORS non autorisé'), false);
   },
   credentials: true
