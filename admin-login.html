@@ -145,9 +145,8 @@
                     setTimeout(() => window.location.href = 'admin.html', 600);
                 }
             } catch (error) {
-                const msg = error.message === 'Failed to fetch' ? 'Erreur de connexion au serveur.' : error.message || 'Identifiant ou mot de passe incorrect.';
-                alertBox.innerHTML = `<div class="alert alert-error">⚠ ${msg}</div>`;
-                setTimeout(() => alertBox.innerHTML = '', 4000);
+                alertBox.innerHTML = '<div class="alert alert-error">⚠ Identifiant ou mot de passe incorrect.</div>';
+                setTimeout(() => alertBox.innerHTML = '', 3000);
             }
         }
 
