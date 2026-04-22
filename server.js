@@ -6,16 +6,33 @@ const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Security Middlewares
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false
+}));
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limite chaque IP à 100 requêtes
+  message: { error: 'Trop de requêtes depuis cette IP, veuillez réessayer après 15 minutes' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(express.static('.'));
+app.use('/api/', apiLimiter);
 
 // Configuration PostgreSQL
 const dbConfig = {
@@ -309,14 +326,32 @@ app.get('/api/auth/verify', authenticateToken, (req, res) => {
 app.get('/api/sessions', authenticateToken, async (req, res) => {
   try {
     const isAdmin = req.user.role === 'super_admin';
+    
+    // Pagination parameters
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = (page - 1) * limit;
+
+    // Count query
+    const countQueryStr = `
+      SELECT COUNT(*) 
+      FROM sessions s
+      ${isAdmin ? '' : 'WHERE s.admin_id = $1'}
+    `;
+    const countParams = isAdmin ? [] : [req.user.id];
+    const { rows: countRows } = await pool.query(countQueryStr, countParams);
+    const total = parseInt(countRows[0].count);
+
+    // Data query
     const queryStr = `
       SELECT s.*, a.username as admin_username 
       FROM sessions s
       LEFT JOIN admins a ON s.admin_id = a.id
       ${isAdmin ? '' : 'WHERE s.admin_id = $1'}
       ORDER BY s.created_at DESC
+      LIMIT $${isAdmin ? '1' : '2'} OFFSET $${isAdmin ? '2' : '3'}
     `;
-    const params = isAdmin ? [] : [req.user.id];
+    const params = isAdmin ? [limit, offset] : [req.user.id, limit, offset];
     
     const { rows: sessions } = await pool.query(queryStr, params);
 
@@ -334,7 +369,15 @@ app.get('/api/sessions', authenticateToken, async (req, res) => {
       }));
     }
 
-    res.json(sessions);
+    res.json({
+      data: sessions,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      }
+    });
   } catch (error) {
     console.error('Erreur get sessions:', error);
     res.status(500).json({ error: 'Erreur serveur' });

@@ -103,9 +103,9 @@ async function showDashboard() {
     currentView = 'dashboard';
     currentSessionCode = null;
     
-    const sessions = await getSessions();
-    const totalPhotos = sessions.reduce((a, s) => a + (s.photos || []).length, 0);
-    const recent = [...sessions].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 4);
+    const stats = await getStats();
+    const sessionsResponse = await getSessions(1, 4);
+    const recent = sessionsResponse.data || [];
 
     document.getElementById('dashView').style.display = 'block';
     document.getElementById('sessionsView').style.display = 'none';
@@ -129,18 +129,18 @@ async function showDashboard() {
     <div class="stats-row">
       <div class="stat-card">
         <div class="stat-label">Séances actives</div>
-        <div class="stat-value">${sessions.length}</div>
+        <div class="stat-value">${stats.totalSessions}</div>
         <div class="stat-sub">au total</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Photos hébergées</div>
-        <div class="stat-value">${totalPhotos}</div>
+        <div class="stat-value">${stats.totalPhotos}</div>
         <div class="stat-sub">dans toutes les séances</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Dernière séance</div>
-        <div class="stat-value" style="font-size:1.4rem;">${sessions.length ? formatDate(sessions[sessions.length - 1].created_at) : '—'}</div>
-        <div class="stat-sub">${sessions.length ? (sessions[sessions.length - 1].client_name || '—') : ''}</div>
+        <div class="stat-value" style="font-size:1.4rem;">${stats.recentSession ? formatDate(stats.recentSession.created_at) : '—'}</div>
+        <div class="stat-sub">${stats.recentSession ? (stats.recentSession.client_name || '—') : ''}</div>
       </div>
     </div>
 
@@ -158,11 +158,13 @@ async function showDashboard() {
 }
 
 // ── Sessions View ──────────────────────────────────────────────
-async function showSessions() {
+async function showSessions(page = 1) {
     currentView = 'sessions';
     currentSessionCode = null;
     
-    const sessions = await getSessions();
+    const response = await getSessions(page, 20);
+    const sessions = response.data || [];
+    const pagination = response.pagination || { totalPages: 1, page: 1 };
 
     document.getElementById('dashView').style.display = 'none';
     document.getElementById('sessionsView').style.display = 'block';
@@ -191,6 +193,14 @@ async function showSessions() {
         </div>
       ` : sessions.map(s => renderSessionRow(s)).join('')}
     </div>
+    
+    ${pagination.totalPages > 1 ? `
+    <div class="pagination" style="display:flex; justify-content:center; gap: 12px; margin-top: 24px;">
+      <button class="btn-secondary" ${pagination.page <= 1 ? 'disabled' : ''} onclick="showSessions(${pagination.page - 1})">← Précédent</button>
+      <span style="align-self:center; color:var(--text-muted); font-size: 0.9rem;">Page ${pagination.page} sur ${pagination.totalPages}</span>
+      <button class="btn-secondary" ${pagination.page >= pagination.totalPages ? 'disabled' : ''} onclick="showSessions(${pagination.page + 1})">Suivant →</button>
+    </div>
+    ` : ''}
   `;
 }
 
