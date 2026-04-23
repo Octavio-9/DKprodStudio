@@ -75,6 +75,19 @@ async function register(name, email, password) {
   return data;
 }
 
+async function googleLogin(credential) {
+  const data = await apiRequest('/auth/google', {
+    method: 'POST',
+    body: JSON.stringify({ credential })
+  });
+
+  if (data.token) {
+    setToken(data.token);
+  }
+
+  return data;
+}
+
 async function updateAuth(data) {
   return await apiRequest('/auth/update', {
     method: 'POST',

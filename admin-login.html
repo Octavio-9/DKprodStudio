@@ -11,6 +11,7 @@
         href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap"
         rel="stylesheet" />
     <link rel="stylesheet" href="css/style.css" />
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 
 <body class="auth-page">
@@ -33,6 +34,9 @@
         </div>
 
         <div id="alertBox"></div>
+
+        <div id="googleSignInContainer" style="display:flex; justify-content:center; margin-bottom: 15px;"></div>
+        <div id="googleSignInDivider" style="text-align:center; color:rgba(255,255,255,0.6); margin-bottom:15px; font-size:14px; display:none;">— OU —</div>
 
         <!-- FORMULAIRE DE CONNEXION -->
         <form class="auth-form" id="loginForm" onsubmit="doLogin(event)">
@@ -99,8 +103,40 @@
             const auth = await verifyAuth();
             if (auth.valid) {
                 window.location.href = 'admin.html';
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/auth/google-config');
+                const data = await response.json();
+                if (data.clientId) {
+                    document.getElementById('googleSignInDivider').style.display = 'block';
+                    google.accounts.id.initialize({
+                        client_id: data.clientId,
+                        callback: handleGoogleLogin
+                    });
+                    google.accounts.id.renderButton(
+                        document.getElementById("googleSignInContainer"),
+                        { theme: "outline", size: "large", type: "standard", width: "100%" }
+                    );
+                }
+            } catch (e) {
+                console.error('Erreur chargement Google Client ID:', e);
             }
         })();
+
+        async function handleGoogleLogin(response) {
+            try {
+                const result = await googleLogin(response.credential);
+                if (result.token) {
+                    showToast('Connexion Google réussie !', 'success');
+                    setTimeout(() => window.location.href = 'admin.html', 600);
+                }
+            } catch (error) {
+                alertBox.innerHTML = '<div class="alert alert-error">⚠ Échec de la connexion avec Google.</div>';
+                setTimeout(() => alertBox.innerHTML = '', 3000);
+            }
+        }
 
         // TAB SWITCHING LOGIC
         const tabLogin = document.getElementById('tabLogin');

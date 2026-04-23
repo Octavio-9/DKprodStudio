@@ -8,7 +8,10 @@ const path = require('path');
 const fs = require('fs');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const { OAuth2Client } = require('google-auth-library');
 require('dotenv').config();
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -269,6 +272,71 @@ app.post('/api/auth/login', async (req, res) => {
   } catch (error) {
     console.error('Erreur login:', error);
     res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+app.get('/api/auth/google-config', (req, res) => {
+  res.json({ clientId: process.env.GOOGLE_CLIENT_ID || '' });
+});
+
+app.post('/api/auth/google', async (req, res) => {
+  try {
+    const { credential } = req.body;
+    
+    if (!credential) {
+      return res.status(400).json({ error: 'Token Google manquant' });
+    }
+
+    if (!process.env.GOOGLE_CLIENT_ID) {
+      return res.status(500).json({ error: 'Configuration Google non définie sur le serveur' });
+    }
+
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+    const { email, name, sub: googleId } = payload;
+
+    // Vérifier si l'utilisateur existe
+    let { rows: existingUsers } = await pool.query('SELECT * FROM admins WHERE email = $1', [email]);
+    let user;
+
+    if (existingUsers.length > 0) {
+      user = existingUsers[0];
+    } else {
+      // Créer un nouvel utilisateur avec un username généré
+      const baseUsername = email.split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '_');
+      let username = baseUsername;
+      let suffix = 1;
+      while (true) {
+        const { rows: existing } = await pool.query('SELECT id FROM admins WHERE username = $1', [username]);
+        if (existing.length === 0) break;
+        username = `${baseUsername}_${suffix++}`;
+      }
+
+      // Générer un mot de passe aléatoire pour l'utilisateur créé via Google
+      const randomPassword = require('crypto').randomBytes(16).toString('hex');
+      const passwordHash = await bcrypt.hash(randomPassword, 10);
+      
+      const { rows: newUser } = await pool.query(
+        'INSERT INTO admins (name, email, username, password_hash) VALUES ($1, $2, $3, $4) RETURNING *',
+        [name, email, username, passwordHash]
+      );
+      user = newUser[0];
+    }
+
+    const token = jwt.sign(
+      { id: user.id, username: user.username, name: user.name, email: user.email, role: user.role },
+      process.env.JWT_SECRET || 'your-secret-key-change-in-production',
+      { expiresIn: '24h' }
+    );
+
+    res.json({ token, username: user.username, name: user.name, email: user.email, role: user.role });
+
+  } catch (error) {
+    console.error('Erreur Google login:', error);
+    res.status(401).json({ error: 'Échec de l\'authentification Google' });
   }
 });
 
