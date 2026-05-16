@@ -24,7 +24,7 @@ export default function HeroSection() {
     <section style={{
       minHeight: "100vh",
       display: "flex", alignItems: "center",
-      padding: "80px 60px 60px",
+      padding: "100px 72px 80px",
       position: "relative", overflow: "hidden"
     }}>
       {/* Chiffre 01 en filigrane */}
@@ -46,7 +46,7 @@ export default function HeroSection() {
       }} />
 
       {/* Contenu gauche */}
-      <div style={{ flex: 1, position: "relative", zIndex: 2, maxWidth: "520px", paddingLeft: "28px" }}>
+      <div style={{ flex: 1, position: "relative", zIndex: 2, maxWidth: "620px", paddingLeft: "36px" }}>
 
         {/* Eyebrow */}
         <motion.div
@@ -63,8 +63,8 @@ export default function HeroSection() {
 
         {/* Titre word-by-word */}
         <h1 style={{
-          fontFamily: "var(--font-playfair)", fontSize: "clamp(36px, 4vw, 56px)",
-          lineHeight: 1.15, fontStyle: "italic", marginBottom: "20px",
+          fontFamily: "var(--font-playfair)", fontSize: "clamp(48px, 5.5vw, 76px)",
+          lineHeight: 1.1, fontStyle: "italic", marginBottom: "24px",
           display: "flex", flexWrap: "wrap", gap: "0 14px"
         }}>
           {TITLE_WORDS.map(({ word, gold }, i) => (
@@ -86,8 +86,8 @@ export default function HeroSection() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.75, duration: 0.5 }}
           style={{
-            fontSize: "13px", color: "var(--text-muted)",
-            lineHeight: 1.75, maxWidth: "380px", marginBottom: "40px"
+            fontSize: "15px", color: "var(--text-muted)",
+            lineHeight: 1.8, maxWidth: "440px", marginBottom: "48px"
           }}
         >
           Accédez à votre galerie privée en quelques secondes. Entrez le code reçu après votre séance.

@@ -63,9 +63,9 @@ export default function CodeForm() {
             const isFilled = i < code.length;
             const isActive = i === code.length && !loading;
             return (
-              <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", width: "36px" }}>
+              <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", width: "46px" }}>
                 <div style={{
-                  fontSize: "22px", fontWeight: 600, height: "28px",
+                  fontSize: "28px", fontWeight: 600, height: "36px",
                   display: "flex", alignItems: "center", justifyContent: "center",
                   color: error ? "var(--danger)" : "var(--text)",
                   fontFamily: "var(--font-playfair)"
@@ -126,8 +126,8 @@ export default function CodeForm() {
           display: "inline-flex", alignItems: "center", gap: "10px",
           background: "rgba(201,168,76,0.08)",
           border: "1px solid rgba(201,168,76,0.4)",
-          color: "var(--gold)", fontSize: "11px", letterSpacing: "3px",
-          textTransform: "uppercase", padding: "14px 28px", borderRadius: "3px",
+          color: "var(--gold)", fontSize: "12px", letterSpacing: "3px",
+          textTransform: "uppercase", padding: "16px 36px", borderRadius: "3px",
           cursor: code.length < 6 ? "not-allowed" : "pointer",
           opacity: code.length < 6 ? 0.5 : 1,
           transition: "opacity 0.2s",

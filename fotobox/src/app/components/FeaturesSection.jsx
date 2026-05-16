@@ -29,7 +29,7 @@ export default function FeaturesSection() {
     <section
       ref={ref}
       style={{
-        padding: "100px 60px",
+        padding: "120px 72px",
         borderTop: "1px solid rgba(255,255,255,0.04)",
         position: "relative"
       }}
@@ -66,13 +66,13 @@ export default function FeaturesSection() {
               background: "linear-gradient(90deg, var(--gold), transparent)"
             }} />
             <div style={{
-              fontSize: "18px", fontFamily: "var(--font-playfair)",
+              fontSize: "22px", fontFamily: "var(--font-playfair)",
               color: "var(--text)", fontStyle: "italic"
             }}>
               {f.title}
             </div>
             <div style={{
-              fontSize: "12px", color: "var(--text-muted)", lineHeight: 1.75
+              fontSize: "14px", color: "var(--text-muted)", lineHeight: 1.8
             }}>
               {f.desc}
             </div>
