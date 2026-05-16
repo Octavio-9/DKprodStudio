@@ -626,7 +626,7 @@ export default function AdminDashboard() {
 
 function compressImage(file, maxPx = 3000, quality = 0.88) {
   return new Promise((resolve) => {
-    const img = new Image();
+    const img = new window.Image();
     const url = URL.createObjectURL(file);
     img.onload = () => {
       URL.revokeObjectURL(url);
