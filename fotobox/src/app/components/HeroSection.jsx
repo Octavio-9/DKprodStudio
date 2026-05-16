@@ -12,6 +12,12 @@ const TITLE_WORDS = [
   { word: "attendent", gold: true },
 ];
 
+const MOBILE_CARDS = [
+  { src: "/images/hero-1.png", rotate: -7, yOffset: 14, floatDur: 3.2, delay: 1.1 },
+  { src: "/images/hero-2.png", rotate: 1,  yOffset: 0,  floatDur: 2.8, delay: 1.3, featured: true },
+  { src: "/images/hero-3.png", rotate: 6,  yOffset: 18, floatDur: 3.6, delay: 1.2 },
+];
+
 export default function HeroSection() {
   const [showScroll, setShowScroll] = useState(true);
   const { scrollY } = useScroll();
@@ -22,7 +28,6 @@ export default function HeroSection() {
 
   return (
     <section className="hero-section" style={{
-      minHeight: "100vh",
       display: "flex", alignItems: "center",
       position: "relative", overflow: "hidden"
     }}>
@@ -59,7 +64,7 @@ export default function HeroSection() {
 
         {/* Titre word-by-word */}
         <h1 style={{
-          fontFamily: "var(--font-playfair)", fontSize: "clamp(48px, 5.5vw, 76px)",
+          fontFamily: "var(--font-playfair)", fontSize: "clamp(44px, 5.5vw, 76px)",
           lineHeight: 1.1, fontStyle: "italic", marginBottom: "24px",
           display: "flex", flexWrap: "wrap", gap: "0 14px"
         }}>
@@ -83,7 +88,7 @@ export default function HeroSection() {
           transition={{ delay: 0.75, duration: 0.5 }}
           style={{
             fontSize: "15px", color: "var(--text-muted)",
-            lineHeight: 1.8, maxWidth: "440px", marginBottom: "48px"
+            lineHeight: 1.8, maxWidth: "440px", marginBottom: "40px"
           }}
         >
           Accédez à votre galerie privée en quelques secondes. Entrez le code reçu après votre séance.
@@ -103,6 +108,58 @@ export default function HeroSection() {
           </div>
           <CodeForm />
         </motion.div>
+
+        {/* Strip photos — visible uniquement sur mobile via .hero-mobile-photos */}
+        <div className="hero-mobile-photos">
+          {MOBILE_CARDS.map((card, i) => (
+            /* Enveloppe d'entrée */
+            <motion.div
+              key={i}
+              initial={{ y: 55, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: card.delay, duration: 0.6, type: "spring", stiffness: 90, damping: 14 }}
+            >
+              {/* Enveloppe de flottement continu */}
+              <motion.div
+                animate={{ y: [card.yOffset, card.yOffset - 8, card.yOffset] }}
+                transition={{ duration: card.floatDur, repeat: Infinity, ease: "easeInOut", delay: card.delay + 0.6 }}
+                style={{
+                  rotate: card.rotate,
+                  width: card.featured ? 118 : 100,
+                  height: card.featured ? 150 : 128,
+                  borderRadius: 12,
+                  overflow: "hidden",
+                  border: card.featured
+                    ? "1px solid rgba(201,168,76,0.35)"
+                    : "1px solid rgba(255,255,255,0.08)",
+                  boxShadow: card.featured
+                    ? "0 16px 40px rgba(0,0,0,0.65), 0 0 20px rgba(201,168,76,0.1)"
+                    : "0 12px 28px rgba(0,0,0,0.55)",
+                  flexShrink: 0,
+                  position: "relative",
+                }}
+              >
+                <img
+                  src={card.src}
+                  alt=""
+                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                />
+                {card.featured && (
+                  <div style={{
+                    position: "absolute", bottom: 8, left: 8, right: 8,
+                    background: "rgba(10,11,14,0.82)",
+                    backdropFilter: "blur(6px)",
+                    border: "1px solid rgba(201,168,76,0.2)",
+                    borderRadius: 4, padding: "5px 8px",
+                    fontSize: 8, color: "var(--gold)", letterSpacing: "0.5px"
+                  }}>
+                    ✓ Session prête
+                  </div>
+                )}
+              </motion.div>
+            </motion.div>
+          ))}
+        </div>
       </div>
 
       {/* Collage photo droite — masqué sur mobile via .hero-collage CSS */}

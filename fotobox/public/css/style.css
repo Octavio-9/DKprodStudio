@@ -542,8 +542,9 @@ input[type=file] { display: none; }
 
 /* ── Landing Redesign — Base desktop ── */
 .navbar-landing     { padding: 0 48px; }
-.hero-section       { padding: 100px 72px 80px; }
+.hero-section       { padding: 100px 72px 80px; min-height: 100vh; }
 .hero-content-left  { max-width: 620px; padding-left: 36px; }
+.hero-mobile-photos { display: none; }
 .hero-deco-line     { position: absolute; left: 60px; top: 100px; bottom: 80px; width: 1px; background: linear-gradient(to bottom, transparent, rgba(201,168,76,0.3) 30%, rgba(201,168,76,0.3) 70%, transparent); }
 .features-landing   { padding: 120px 72px; }
 .features-grid-inner { padding-left: 28px; }
@@ -556,8 +557,16 @@ input[type=file] { display: none; }
   /* Landing hero */
   .hero-collage       { display: none !important; }
   .navbar-landing     { padding: 0 24px; }
-  .hero-section       { flex-direction: column; padding: 90px 24px 60px; align-items: flex-start; }
+  .hero-section       { flex-direction: column; padding: 90px 24px 52px; align-items: flex-start; min-height: auto; }
   .hero-content-left  { max-width: 100%; padding-left: 12px; }
+  .hero-mobile-photos {
+    display: flex;
+    gap: 14px;
+    align-items: flex-end;
+    padding-top: 36px;
+    padding-bottom: 8px;
+    overflow: visible;
+  }
   .hero-deco-line     { left: 20px; top: 80px; }
   .features-landing   { padding: 80px 24px; }
   .features-grid-inner { padding-left: 12px; }
