@@ -1,16 +1,12 @@
 import Navbar from "./components/Navbar";
 import HeroSection from "./components/HeroSection";
 import FeaturesSection from "./components/FeaturesSection";
+import AnimatedBlobs from "./components/AnimatedBlobs";
 
 export default function Home() {
   return (
     <main style={{ background: "var(--dark)", minHeight: "100vh", overflowX: "hidden" }}>
-      {/* Bokeh blobs existants */}
-      <div className="bg-blobs">
-        <div className="blob blob-1" />
-        <div className="blob blob-2" />
-        <div className="blob blob-3" />
-      </div>
+      <AnimatedBlobs />
 
       <Navbar />
       <HeroSection />
