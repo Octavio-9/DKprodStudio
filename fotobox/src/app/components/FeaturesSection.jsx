@@ -28,23 +28,16 @@ export default function FeaturesSection() {
   return (
     <section
       ref={ref}
-      style={{
-        padding: "120px 72px",
-        borderTop: "1px solid rgba(255,255,255,0.04)",
-        position: "relative"
-      }}
+      className="features-landing"
+      style={{ borderTop: "1px solid rgba(255,255,255,0.04)", position: "relative" }}
     >
       {/* Ligne décorative verticale */}
-      <div style={{
-        position: "absolute", left: "60px", top: 0, bottom: 0, width: "1px",
-        background: "linear-gradient(to bottom, transparent, rgba(201,168,76,0.15) 30%, rgba(201,168,76,0.15) 70%, transparent)"
-      }} />
+      <div className="feat-deco-line" />
 
-      <div style={{
+      <div className="features-grid-inner" style={{
         display: "grid",
         gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-        gap: "60px",
-        paddingLeft: "28px"
+        gap: "60px"
       }}>
         {FEATURES.map((f, i) => (
           <motion.div

@@ -21,10 +21,9 @@ export default function HeroSection() {
   });
 
   return (
-    <section style={{
+    <section className="hero-section" style={{
       minHeight: "100vh",
       display: "flex", alignItems: "center",
-      padding: "100px 72px 80px",
       position: "relative", overflow: "hidden"
     }}>
       {/* Chiffre 01 en filigrane */}
@@ -40,13 +39,10 @@ export default function HeroSection() {
       </div>
 
       {/* Ligne décorative verticale */}
-      <div style={{
-        position: "absolute", left: "60px", top: "100px", bottom: "80px", width: "1px",
-        background: "linear-gradient(to bottom, transparent, rgba(201,168,76,0.3) 30%, rgba(201,168,76,0.3) 70%, transparent)"
-      }} />
+      <div className="hero-deco-line" />
 
       {/* Contenu gauche */}
-      <div style={{ flex: 1, position: "relative", zIndex: 2, maxWidth: "620px", paddingLeft: "36px" }}>
+      <div className="hero-content-left" style={{ flex: 1, position: "relative", zIndex: 2 }}>
 
         {/* Eyebrow */}
         <motion.div

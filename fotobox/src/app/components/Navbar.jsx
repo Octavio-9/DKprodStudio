@@ -19,11 +19,11 @@ export default function Navbar() {
       initial={{ y: -20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.5, delay: 0.1 }}
+      className="navbar-landing"
       style={{
         position: "fixed", top: 0, left: 0, right: 0, zIndex: 100,
         height: "56px",
         display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "0 48px",
         borderBottom: scrolled
           ? "1px solid rgba(201,168,76,0.2)"
           : "1px solid rgba(201,168,76,0.07)",

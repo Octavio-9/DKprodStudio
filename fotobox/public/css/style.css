@@ -540,7 +540,60 @@ input[type=file] { display: none; }
 }
 .copy-code-btn { font-size: .8rem; }
 
-/* ── Landing Redesign ── */
-@media (max-width: 768px) {
-  .hero-collage { display: none !important; }
+/* ── Landing Redesign — Base desktop ── */
+.navbar-landing     { padding: 0 48px; }
+.hero-section       { padding: 100px 72px 80px; }
+.hero-content-left  { max-width: 620px; padding-left: 36px; }
+.hero-deco-line     { position: absolute; left: 60px; top: 100px; bottom: 80px; width: 1px; background: linear-gradient(to bottom, transparent, rgba(201,168,76,0.3) 30%, rgba(201,168,76,0.3) 70%, transparent); }
+.features-landing   { padding: 120px 72px; }
+.features-grid-inner { padding-left: 28px; }
+.feat-deco-line     { position: absolute; left: 60px; top: 0; bottom: 0; width: 1px; background: linear-gradient(to bottom, transparent, rgba(201,168,76,0.15) 30%, rgba(201,168,76,0.15) 70%, transparent); }
+.code-slots         { display: flex; gap: 12px; cursor: text; }
+.code-slot          { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 46px; }
+
+/* ── Tablet & mobile (≤ 900px) ── */
+@media (max-width: 900px) {
+  /* Landing hero */
+  .hero-collage       { display: none !important; }
+  .navbar-landing     { padding: 0 24px; }
+  .hero-section       { flex-direction: column; padding: 90px 24px 60px; align-items: flex-start; }
+  .hero-content-left  { max-width: 100%; padding-left: 12px; }
+  .hero-deco-line     { left: 20px; top: 80px; }
+  .features-landing   { padding: 80px 24px; }
+  .features-grid-inner { padding-left: 12px; }
+  .feat-deco-line     { left: 20px; }
+  .code-slots         { gap: 10px; }
+  .code-slot          { width: 40px; }
+
+  /* Client portal */
+  .client-hero        { padding: 100px 20px 36px !important; }
+  .client-hero h1     { font-size: 2rem !important; }
+  .client-gallery     { padding: 20px 16px 60px !important; }
+  .client-toolbar     { padding: 12px 16px !important; top: 56px !important; }
+  .toolbar-right .btn-secondary { font-size: .8rem; padding: 8px 12px; }
+  .toolbar-right .btn-primary   { font-size: .8rem; padding: 8px 12px; }
+}
+
+/* ── Small phones (≤ 520px) ── */
+@media (max-width: 520px) {
+  /* Landing hero */
+  .navbar-landing      { padding: 0 16px; }
+  .hero-section        { padding: 88px 14px 48px; }
+  .hero-content-left   { padding-left: 0; }
+  .hero-deco-line      { display: none; }
+  .features-landing    { padding: 60px 14px; }
+  .features-grid-inner { padding-left: 0; }
+  .feat-deco-line      { display: none; }
+  .code-slots          { gap: 6px; }
+  .code-slot           { width: 32px; }
+
+  /* Client portal */
+  .client-hero         { padding: 90px 14px 28px !important; }
+  .client-hero h1      { font-size: 1.6rem !important; }
+  .gallery-grid        { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
+  .client-toolbar .toolbar-left { display: none; }
+
+  /* Admin */
+  .page-header         { flex-direction: column !important; align-items: flex-start !important; gap: 12px; }
+  .modal               { margin: 0 8px; width: calc(100% - 16px); }
 }

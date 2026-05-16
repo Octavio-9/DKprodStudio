@@ -56,14 +56,14 @@ export default function CodeForm() {
           }}
         />
         <div
+          className="code-slots"
           onClick={() => inputRef.current?.focus()}
-          style={{ display: "flex", gap: "12px", cursor: "text" }}
         >
           {slots.map((char, i) => {
             const isFilled = i < code.length;
             const isActive = i === code.length && !loading;
             return (
-              <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", width: "46px" }}>
+              <div key={i} className="code-slot">
                 <div style={{
                   fontSize: "28px", fontWeight: 600, height: "36px",
                   display: "flex", alignItems: "center", justifyContent: "center",
