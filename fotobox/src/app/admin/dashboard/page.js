@@ -419,24 +419,32 @@ export default function AdminDashboard() {
                 <p className="page-subtitle">{sessionDetail.type} · {formatDate(sessionDetail.created_at)}</p>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  {/* Lien — prioritaire, affiché en premier et mis en valeur */}
                   <div className="session-code-display">
-                    <span style={{ color: "var(--text-muted)", fontSize: ".85rem" }}>Code client :</span>
-                    <span className="code-pill">{sessionDetail.code}</span>
-                    <button className="btn-icon copy-code-btn" onClick={() => copyText(sessionDetail.code)} title="Copier le code">📋</button>
-                  </div>
-                  <div className="session-code-display">
-                    <span style={{ color: "var(--text-muted)", fontSize: ".85rem" }}>Lien client :</span>
-                    <span className="code-pill" style={{ fontSize: ".75rem", letterSpacing: ".5px", maxWidth: "160px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <span style={{ color: "var(--text)", fontSize: ".85rem", fontWeight: 600 }}>Lien client :</span>
+                    <span className="code-pill" style={{
+                      fontSize: ".78rem", maxWidth: "200px",
+                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                      background: "rgba(201,168,76,0.15)", border: "1px solid rgba(201,168,76,0.4)",
+                      color: "var(--gold)",
+                    }}>
                       /client/{sessionDetail.code}
                     </span>
                     <button
                       className="btn-icon copy-code-btn"
                       onClick={() => copyText(`${typeof window !== 'undefined' ? window.location.origin : ''}/client/${sessionDetail.code}`)}
                       title="Copier le lien"
+                      style={{ background: "rgba(201,168,76,0.15)", border: "1px solid rgba(201,168,76,0.3)", color: "var(--gold)" }}
                     >
                       📋
                     </button>
+                  </div>
+                  {/* Code — secondaire */}
+                  <div className="session-code-display" style={{ opacity: 0.6 }}>
+                    <span style={{ color: "var(--text-muted)", fontSize: ".8rem" }}>Code :</span>
+                    <span className="code-pill" style={{ fontSize: ".75rem" }}>{sessionDetail.code}</span>
+                    <button className="btn-icon copy-code-btn" onClick={() => copyText(sessionDetail.code)} title="Copier le code" style={{ fontSize: ".8rem" }}>📋</button>
                   </div>
                 </div>
                 <motion.button
