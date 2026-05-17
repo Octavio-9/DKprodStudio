@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
+import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { motion, useScroll, useMotionValueEvent } from "framer-motion";
 import CodeForm from "./CodeForm";
 import PhotoCollage from "./PhotoCollage";
@@ -22,17 +24,54 @@ const MOBILE_CARDS = [
 
 export default function HeroSection() {
   const [showScroll, setShowScroll] = useState(true);
+  const sectionRef = useRef(null);
+  const collageWrapRef = useRef(null);
   const { scrollY } = useScroll();
 
   useMotionValueEvent(scrollY, "change", (val) => {
     setShowScroll(val < 100);
   });
 
+  useEffect(() => {
+    gsap.registerPlugin(ScrollTrigger);
+
+    const mm = gsap.matchMedia();
+
+    mm.add("(min-width: 768px)", () => {
+      // Pin hero while next section scrolls up over it
+      ScrollTrigger.create({
+        trigger: sectionRef.current,
+        pin: true,
+        scrub: 1,
+        end: "+=400",
+      });
+
+      // Subtle upward parallax on the photo collage
+      gsap.to(collageWrapRef.current, {
+        y: -40,
+        ease: "none",
+        scrollTrigger: {
+          trigger: sectionRef.current,
+          start: "top top",
+          end: "bottom top",
+          scrub: 1,
+        },
+      });
+
+      return () => {
+        ScrollTrigger.getAll().forEach((t) => t.kill());
+      };
+    });
+
+    return () => mm.revert();
+  }, []);
+
   return (
-    <section className="hero-section" style={{
-      display: "flex", alignItems: "center",
-      position: "relative", overflow: "hidden"
-    }}>
+    <section
+      ref={sectionRef}
+      className="hero-section"
+      style={{ display: "flex", alignItems: "center", position: "relative", overflow: "hidden" }}
+    >
       <VideoBackground />
       {/* Chiffre 01 en filigrane */}
       <div style={{
@@ -167,6 +206,7 @@ export default function HeroSection() {
 
       {/* Collage photo droite — masqué sur mobile via .hero-collage CSS */}
       <motion.div
+        ref={collageWrapRef}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.3, duration: 0.6 }}
