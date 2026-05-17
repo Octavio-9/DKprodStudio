@@ -1,16 +1,13 @@
-// src/app/components/ClientLayout.jsx
 "use client";
 import { AnimatePresence } from "framer-motion";
 import { usePathname } from "next/navigation";
-
-// CinematicCursor imported in Task 9 — placeholder for now
-function CinematicCursorPlaceholder() { return null; }
+import CinematicCursor from "./CinematicCursor";
 
 export default function ClientLayout({ children }) {
   const pathname = usePathname();
   return (
     <>
-      <CinematicCursorPlaceholder />
+      <CinematicCursor />
       <AnimatePresence mode="wait" initial={false}>
         <div key={pathname} style={{ minHeight: "100vh" }}>
           {children}
