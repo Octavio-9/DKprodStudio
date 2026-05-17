@@ -12,6 +12,7 @@ export default function VideoBackground() {
         muted
         loop
         playsInline
+        preload="none"
         src="/videos/hero.mp4"
         style={{
           width: "100%", height: "100%",

@@ -38,29 +38,26 @@ export default function HeroSection() {
     const mm = gsap.matchMedia();
 
     mm.add("(min-width: 768px)", () => {
-      // Pin hero while next section scrolls up over it
-      ScrollTrigger.create({
-        trigger: sectionRef.current,
-        pin: true,
-        scrub: 1,
-        end: "+=400",
-      });
-
-      // Subtle upward parallax on the photo collage
-      gsap.to(collageWrapRef.current, {
-        y: -40,
-        ease: "none",
-        scrollTrigger: {
+      const ctx = gsap.context(() => {
+        ScrollTrigger.create({
           trigger: sectionRef.current,
-          start: "top top",
-          end: "bottom top",
-          scrub: 1,
-        },
+          pin: true,
+          end: "+=400",
+        });
+
+        gsap.to(collageWrapRef.current, {
+          y: -40,
+          ease: "none",
+          scrollTrigger: {
+            trigger: sectionRef.current,
+            start: "top top",
+            end: "bottom top",
+            scrub: 1,
+          },
+        });
       });
 
-      return () => {
-        ScrollTrigger.getAll().forEach((t) => t.kill());
-      };
+      return () => ctx.revert();
     });
 
     return () => mm.revert();
@@ -70,7 +67,7 @@ export default function HeroSection() {
     <section
       ref={sectionRef}
       className="hero-section"
-      style={{ display: "flex", alignItems: "center", position: "relative", overflow: "hidden" }}
+      style={{ display: "flex", alignItems: "center", position: "relative" }}
     >
       <VideoBackground />
       {/* Chiffre 01 en filigrane */}

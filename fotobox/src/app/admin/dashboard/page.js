@@ -303,7 +303,7 @@ export default function AdminDashboard() {
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.85 }}
-                      transition={{ delay: i * 0.05, duration: 0.35 }}
+                      transition={{ delay: Math.min(i * 0.05, 0.3), duration: 0.35 }}
                     >
                       <div>
                         <div className="session-name">{s.client_name}</div>
@@ -357,7 +357,7 @@ export default function AdminDashboard() {
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.85 }}
-                      transition={{ delay: i * 0.05, duration: 0.35 }}
+                      transition={{ delay: Math.min(i * 0.05, 0.3), duration: 0.35 }}
                     >
                       <div>
                         <div className="session-name">{s.client_name}</div>

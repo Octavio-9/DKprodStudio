@@ -34,25 +34,27 @@ export default function FeaturesSection() {
 
     const mm = gsap.matchMedia();
     mm.add("(min-width: 768px)", () => {
-      cardRefs.current.forEach((card) => {
-        if (!card) return;
-        gsap.fromTo(
-          card,
-          { y: 60 },
-          {
-            y: 0,
-            ease: "none",
-            scrollTrigger: {
-              trigger: card,
-              start: "top bottom",
-              end: "top center",
-              scrub: 0.5,
-            },
-          }
-        );
+      const ctx = gsap.context(() => {
+        cardRefs.current.forEach((card) => {
+          if (!card) return;
+          gsap.fromTo(
+            card,
+            { y: 60 },
+            {
+              y: 0,
+              ease: "none",
+              scrollTrigger: {
+                trigger: card,
+                start: "top bottom",
+                end: "top center",
+                scrub: 0.5,
+              },
+            }
+          );
+        });
       });
 
-      return () => ScrollTrigger.getAll().forEach((t) => t.kill());
+      return () => ctx.revert();
     });
 
     return () => mm.revert();

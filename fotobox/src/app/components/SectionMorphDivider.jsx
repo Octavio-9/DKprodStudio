@@ -11,43 +11,20 @@ export default function SectionMorphDivider({ fillColor = "#0a0a0a" }) {
 
   useEffect(() => {
     gsap.registerPlugin(ScrollTrigger);
-
     const mm = gsap.matchMedia();
     mm.add("(min-width: 768px)", () => {
-      // Wave fades out as you scroll into it
-      gsap.fromTo(
-        waveRef.current,
-        { opacity: 1 },
-        {
-          opacity: 0,
-          ease: "none",
-          scrollTrigger: {
-            trigger: containerRef.current,
-            start: "top bottom",
-            end: "center center",
-            scrub: true,
-          },
-        }
-      );
-      // Diagonal fades in simultaneously
-      gsap.fromTo(
-        diagonalRef.current,
-        { opacity: 0 },
-        {
-          opacity: 1,
-          ease: "none",
-          scrollTrigger: {
-            trigger: containerRef.current,
-            start: "top bottom",
-            end: "center center",
-            scrub: true,
-          },
-        }
-      );
-
-      return () => ScrollTrigger.getAll().forEach((t) => t.kill());
+      const ctx = gsap.context(() => {
+        gsap.fromTo(waveRef.current, { opacity: 1 }, {
+          opacity: 0, ease: "none",
+          scrollTrigger: { trigger: containerRef.current, start: "top bottom", end: "center center", scrub: true },
+        });
+        gsap.fromTo(diagonalRef.current, { opacity: 0 }, {
+          opacity: 1, ease: "none",
+          scrollTrigger: { trigger: containerRef.current, start: "top bottom", end: "center center", scrub: true },
+        });
+      });
+      return () => ctx.revert();
     });
-
     return () => mm.revert();
   }, []);
 
