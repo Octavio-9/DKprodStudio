@@ -419,10 +419,23 @@ export default function AdminDashboard() {
                 <p className="page-subtitle">{sessionDetail.type} · {formatDate(sessionDetail.created_at)}</p>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-                <div className="session-code-display">
-                  <span style={{ color: "var(--text-muted)", fontSize: ".85rem" }}>Code client :</span>
-                  <span className="code-pill">{sessionDetail.code}</span>
-                  <button className="btn-icon copy-code-btn" onClick={() => copyText(sessionDetail.code)} title="Copier">📋</button>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <div className="session-code-display">
+                    <span style={{ color: "var(--text-muted)", fontSize: ".85rem" }}>Code client :</span>
+                    <span className="code-pill">{sessionDetail.code}</span>
+                    <button className="btn-icon copy-code-btn" onClick={() => copyText(sessionDetail.code)} title="Copier le code">📋</button>
+                  </div>
+                  <div className="session-code-display">
+                    <span style={{ color: "var(--text-muted)", fontSize: ".85rem" }}>Lien client :</span>
+                    <button
+                      className="btn-icon copy-code-btn"
+                      onClick={() => copyText(`${typeof window !== 'undefined' ? window.location.origin : ''}/client/${sessionDetail.code}`)}
+                      title="Copier le lien"
+                      style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: ".8rem", padding: "4px 10px", borderRadius: "var(--radius-sm)", background: "rgba(201,168,76,0.08)", border: "1px solid rgba(201,168,76,0.2)", color: "var(--gold)", cursor: "pointer" }}
+                    >
+                      🔗 Copier le lien
+                    </button>
+                  </div>
                 </div>
                 <motion.button
                   className="btn-primary"
