@@ -1,7 +1,9 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useEffect } from "react";
 import { motion, useInView } from "framer-motion";
+import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import TextReveal from "./TextReveal";
 
 const FEATURES = [
@@ -25,6 +27,36 @@ const FEATURES = [
 export default function FeaturesSection() {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, amount: 0.2 });
+  const cardRefs = useRef([]);
+
+  useEffect(() => {
+    gsap.registerPlugin(ScrollTrigger);
+
+    const mm = gsap.matchMedia();
+    mm.add("(min-width: 768px)", () => {
+      cardRefs.current.forEach((card) => {
+        if (!card) return;
+        gsap.fromTo(
+          card,
+          { y: 60 },
+          {
+            y: 0,
+            ease: "none",
+            scrollTrigger: {
+              trigger: card,
+              start: "top bottom",
+              end: "top center",
+              scrub: 0.5,
+            },
+          }
+        );
+      });
+
+      return () => ScrollTrigger.getAll().forEach((t) => t.kill());
+    });
+
+    return () => mm.revert();
+  }, []);
 
   return (
     <section
@@ -54,6 +86,7 @@ export default function FeaturesSection() {
         {FEATURES.map((f, i) => (
           <motion.div
             key={f.num}
+            ref={(el) => { cardRefs.current[i] = el; }}
             initial={{ opacity: 0, y: 40 }}
             animate={isInView ? { opacity: 1, y: 0 } : {}}
             transition={{ delay: i * 0.15, duration: 0.5 }}
