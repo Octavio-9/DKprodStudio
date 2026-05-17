@@ -99,6 +99,7 @@ FotoBOX already has Framer Motion animations (blobs, stagger, parallax cards, Co
 | `src/app/components/CinematicCursor.jsx` | New component (cursor + light field) |
 | `src/app/components/SectionMorphDivider.jsx` | New component |
 | `src/app/components/PageTransition.jsx` | New component |
+| `src/app/admin/dashboard/page.js` | Stagger cartes, modales AnimatePresence, upload progress, suppression animée, toasts |
 | `public/css/style.css` | Add `body { cursor: none }` when cursor active, mobile overrides |
 | `package.json` | Add `gsap` dependency |
 
@@ -114,9 +115,21 @@ FotoBOX already has Framer Motion animations (blobs, stagger, parallax cards, Co
 
 ---
 
+### 8. Dashboard Admin — Animations fonctionnelles
+**Files:** `src/app/admin/dashboard/page.js`, modales existantes
+
+- **Cartes de séances** : apparition en stagger au chargement (`y: 20→0`, `opacity 0→1`, délai `0.05s * index`) via Framer Motion
+- **Modales** (upload, suppression, création de séance) : entrée `scale 0.95→1` + `opacity 0→1`, sortie `scale 1→0.95` via `AnimatePresence`
+- **Upload progress** : barre de progression animée (`scaleX: 0→1`) avec couleur qui change selon l'état (`compressing` → `uploading` → `done` → `error`)
+- **Suppression de séance/photo** : carte disparaît avec `scale 1→0.8` + `opacity 1→0` avant retrait du DOM
+- **Toast / alertes** : slide-in depuis la droite (`x: 60→0`), disparaît vers la droite à l'expiration
+- **Boutons d'action** : `whileHover` scale `1→1.03`, `whileTap` scale `1→0.97`
+- Curseur diaphragme actif dans le dashboard (déjà inclus via layout global)
+
+---
+
 ## Out of Scope
 
 - WebGL / Three.js effects
 - Audio sync
 - Loading screen / preloader animation
-- Admin dashboard visual overhaul (transitions apply but no new animations inside dashboard)
