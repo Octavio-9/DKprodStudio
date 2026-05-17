@@ -1,4 +1,3 @@
-// src/app/components/CinematicCursor.jsx
 "use client";
 import { useEffect, useState } from "react";
 import { motion, useMotionValue, useSpring } from "framer-motion";
@@ -8,13 +7,13 @@ export default function CinematicCursor() {
   const [isTouch, setIsTouch] = useState(false);
   const [cursorState, setCursorState] = useState("default"); // "default" | "hover" | "click"
 
-  // Cursor position (fast spring)
+  // Very snappy cursor tracking
   const mouseX = useMotionValue(-100);
   const mouseY = useMotionValue(-100);
-  const cursorX = useSpring(mouseX, { stiffness: 500, damping: 30 });
-  const cursorY = useSpring(mouseY, { stiffness: 500, damping: 30 });
+  const cursorX = useSpring(mouseX, { stiffness: 900, damping: 40 });
+  const cursorY = useSpring(mouseY, { stiffness: 900, damping: 40 });
 
-  // Light field position (slow spring — lags behind)
+  // Light field (slow lag)
   const lightRawX = useMotionValue(-300);
   const lightRawY = useMotionValue(-300);
   const lightX = useSpring(lightRawX, { stiffness: 80, damping: 20 });
@@ -25,9 +24,9 @@ export default function CinematicCursor() {
     setIsTouch(window.matchMedia("(pointer: coarse)").matches);
 
     const onMove = (e) => {
-      mouseX.set(e.clientX - 20);  // center 40px cursor
-      mouseY.set(e.clientY - 20);
-      lightRawX.set(e.clientX - 200);  // center 400px light field
+      mouseX.set(e.clientX - 12); // center 24px cursor
+      mouseY.set(e.clientY - 12);
+      lightRawX.set(e.clientX - 200);
       lightRawY.set(e.clientY - 200);
     };
 
@@ -39,8 +38,8 @@ export default function CinematicCursor() {
       }
     };
 
-    const onDown = () => setCursorState("click");
-    const onUp = () => setCursorState("default");
+    const onDown = () => { if (cursorState === "hover") setCursorState("click"); };
+    const onUp = () => setCursorState((prev) => prev === "click" ? "hover" : "default");
 
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseover", onOver);
@@ -60,82 +59,77 @@ export default function CinematicCursor() {
 
   if (!mounted || isTouch) return null;
 
-  // Aperture inner radius: larger = more open
-  const innerR = cursorState === "click" ? 17 : cursorState === "hover" ? 3 : 8;
-  const cursorScale = cursorState === "hover" ? 1.4 : 1;
-  const lightOpacity = cursorState === "hover" ? 0.18 : 0.08;
-  const lightScale = cursorState === "hover" ? 1.5 : 1;
+  const isHover = cursorState === "hover" || cursorState === "click";
+  const innerR = cursorState === "click" ? 9 : 4; // aperture hole when active
+  const lightOpacity = isHover ? 0.14 : 0.06;
+  const lightScale = isHover ? 1.3 : 1;
 
   return (
     <>
-      {/* Aperture cursor */}
+      {/* Cursor — 24×24px */}
       <motion.div
         style={{
           position: "fixed",
           left: cursorX,
           top: cursorY,
-          width: 40,
-          height: 40,
+          width: 24,
+          height: 24,
           pointerEvents: "none",
           zIndex: 99999,
         }}
-        animate={{ scale: cursorScale }}
-        transition={{ type: "spring", stiffness: 400, damping: 25 }}
       >
-        <svg viewBox="0 0 40 40" width="40" height="40">
+        <svg viewBox="0 0 24 24" width="24" height="24">
           <defs>
-            <mask id="cinematic-aperture-mask">
-              <rect width="40" height="40" fill="white" />
-              {/* Center hole — grows when open, shrinks when closed */}
+            <mask id="aperture-mask">
+              <rect width="24" height="24" fill="white" />
               <motion.circle
-                cx="20"
-                cy="20"
-                animate={{ r: innerR }}
-                transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                cx="12" cy="12"
+                animate={{ r: isHover ? innerR : 0 }}
+                transition={{ type: "spring", stiffness: 600, damping: 30 }}
                 fill="black"
               />
             </mask>
           </defs>
 
-          {/* White iris disc, masked to show aperture blades */}
-          <circle
-            cx="20"
-            cy="20"
-            r="18"
-            fill="rgba(255,255,255,0.88)"
-            mask="url(#cinematic-aperture-mask)"
+          {/* Aperture blades — only visible on hover */}
+          <motion.circle
+            cx="12" cy="12" r="10"
+            fill="rgba(255,255,255,0.85)"
+            mask="url(#aperture-mask)"
+            animate={{ opacity: isHover ? 1 : 0 }}
+            transition={{ duration: 0.15 }}
           />
 
-          {/* 8 blade-divider lines radiating from center */}
+          {/* 8 blade dividers — only on hover */}
           {Array.from({ length: 8 }).map((_, i) => (
-            <line
+            <motion.line
               key={i}
-              x1="20"
-              y1="20"
-              x2={20 + 18 * Math.cos((i * Math.PI) / 4)}
-              y2={20 + 18 * Math.sin((i * Math.PI) / 4)}
+              x1="12" y1="12"
+              x2={12 + 10 * Math.cos((i * Math.PI) / 4)}
+              y2={12 + 10 * Math.sin((i * Math.PI) / 4)}
               stroke="rgba(0,0,0,0.18)"
-              strokeWidth="0.6"
+              strokeWidth="0.5"
+              animate={{ opacity: isHover ? 1 : 0 }}
+              transition={{ duration: 0.15 }}
             />
           ))}
 
-          {/* Gold outer ring */}
-          <circle
-            cx="20"
-            cy="20"
-            r="18"
+          {/* Gold ring — always visible, brighter on hover */}
+          <motion.circle
+            cx="12" cy="12" r="10"
             fill="none"
             stroke="#c9a84c"
             strokeWidth="1"
-            opacity="0.85"
+            animate={{ opacity: isHover ? 0.9 : 0.5, r: isHover ? 10 : 5 }}
+            transition={{ type: "spring", stiffness: 600, damping: 30 }}
           />
 
-          {/* Center dot */}
-          <circle cx="20" cy="20" r="1.5" fill="white" />
+          {/* Center dot — always visible */}
+          <circle cx="12" cy="12" r="2" fill="white" />
         </svg>
       </motion.div>
 
-      {/* Reactive light field (studio spotlight) */}
+      {/* Reactive light field */}
       <motion.div
         style={{
           position: "fixed",

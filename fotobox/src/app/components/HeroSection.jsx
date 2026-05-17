@@ -6,7 +6,6 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { motion, useScroll, useMotionValueEvent } from "framer-motion";
 import CodeForm from "./CodeForm";
 import PhotoCollage from "./PhotoCollage";
-import VideoBackground from "./VideoBackground";
 import TextReveal from "./TextReveal";
 
 const TITLE_WORDS = [
@@ -69,7 +68,6 @@ export default function HeroSection() {
       className="hero-section"
       style={{ display: "flex", alignItems: "center", position: "relative" }}
     >
-      <VideoBackground />
       {/* Chiffre 01 en filigrane */}
       <div style={{
         position: "absolute", top: "50%", left: "50%",
