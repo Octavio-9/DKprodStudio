@@ -147,7 +147,7 @@ export default function AdminDashboard() {
         type,
         note,
         expires_at: expiresAt.toISOString(),
-        admin_id: currentUser.id
+        // admin_id est forcé côté serveur — ne pas l'envoyer depuis le client
       });
       
       setIsCreateModalOpen(false);
