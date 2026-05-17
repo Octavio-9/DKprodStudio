@@ -127,8 +127,9 @@ export default function ClientGallery({ session, initialPhotos }) {
       const jpegBlob = await toJpegBlob(rawBlob);
       const fileName = (name || 'photo').replace(/\.[^.]+$/, '') + '.jpg';
 
-      // Try Web Share API (mobile — opens native share sheet with "Save to Photos")
-      if (navigator.canShare?.({ files: [new File([jpegBlob], fileName, { type: 'image/jpeg' })] })) {
+      // Try Web Share API on touch/mobile devices only (opens native share sheet with "Save to Photos")
+      const isMobile = window.matchMedia("(pointer: coarse)").matches;
+      if (isMobile && navigator.canShare?.({ files: [new File([jpegBlob], fileName, { type: 'image/jpeg' })] })) {
         const file = new File([jpegBlob], fileName, { type: 'image/jpeg' });
         await navigator.share({ files: [file], title: fileName });
         return;
