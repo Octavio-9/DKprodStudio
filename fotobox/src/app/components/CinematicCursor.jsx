@@ -116,16 +116,16 @@ export default function CinematicCursor() {
 
           {/* Gold ring — always visible, brighter on hover */}
           <motion.circle
-            cx="12" cy="12" r="10"
+            cx="12" cy="12"
             fill="none"
             stroke="#c9a84c"
-            strokeWidth="1"
-            animate={{ opacity: isHover ? 0.9 : 0.5, r: isHover ? 10 : 5 }}
+            strokeWidth="1.2"
+            animate={{ opacity: isHover ? 0.95 : 0.75, r: isHover ? 10 : 7 }}
             transition={{ type: "spring", stiffness: 600, damping: 30 }}
           />
 
           {/* Center dot — always visible */}
-          <circle cx="12" cy="12" r="2" fill="white" />
+          <circle cx="12" cy="12" r="2.5" fill="white" />
         </svg>
       </motion.div>
 
