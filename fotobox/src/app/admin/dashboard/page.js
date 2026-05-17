@@ -258,7 +258,15 @@ export default function AdminDashboard() {
                 <h1 className="page-title">Tableau de bord</h1>
                 <p className="page-subtitle">Bienvenue, <strong style={{ color: "var(--gold)" }}>{currentUser?.name || currentUser?.username || 'Admin'}</strong> 👋.</p>
               </div>
-              <button className="btn-primary" onClick={() => setIsCreateModalOpen(true)}>✦ Nouvelle séance</button>
+              <motion.button
+                className="btn-primary"
+                onClick={() => setIsCreateModalOpen(true)}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                transition={{ type: "spring", stiffness: 400, damping: 20 }}
+              >
+                ✦ Nouvelle séance
+              </motion.button>
             </div>
             <div className="stats-row">
               <div className="stat-card">
@@ -281,28 +289,37 @@ export default function AdminDashboard() {
             </div>
             <div className="section-title">🕒 Séances récentes</div>
             <div className="sessions-list">
-              {recentSessions.length === 0 ? (
-                <div className="empty-state">
-                  <div className="empty-icon">📂</div>
-                  <div className="empty-title">Aucune séance pour l'instant</div>
-                </div>
-              ) : (
-                recentSessions.map(s => (
-                  <div className="session-row" key={s.id}>
-                    <div>
-                      <div className="session-name">{s.client_name}</div>
-                      <div className="session-meta">
-                        {s.type} · Créée le {formatDate(s.created_at)} · Expire le {formatDate(s.expires_at)}
-                      </div>
-                    </div>
-                    <div className="session-code-badge" onClick={() => copyText(s.code)} title="Copier le code">{s.code}</div>
-                    <div className="session-actions">
-                      <button className="btn-secondary" onClick={() => openSessionDetail(s.code)} style={{ fontSize: ".8rem", padding: "8px 14px" }}>📸 Gérer</button>
-                      <button className="btn-danger" onClick={() => deleteSessionHandler(s.code)}>🗑</button>
-                    </div>
+              <AnimatePresence>
+                {recentSessions.length === 0 ? (
+                  <div className="empty-state">
+                    <div className="empty-icon">📂</div>
+                    <div className="empty-title">Aucune séance pour l'instant</div>
                   </div>
-                ))
-              )}
+                ) : (
+                  recentSessions.map((s, i) => (
+                    <motion.div
+                      className="session-row"
+                      key={s.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.85 }}
+                      transition={{ delay: i * 0.05, duration: 0.35 }}
+                    >
+                      <div>
+                        <div className="session-name">{s.client_name}</div>
+                        <div className="session-meta">
+                          {s.type} · Créée le {formatDate(s.created_at)} · Expire le {formatDate(s.expires_at)}
+                        </div>
+                      </div>
+                      <div className="session-code-badge" onClick={() => copyText(s.code)} title="Copier le code">{s.code}</div>
+                      <div className="session-actions">
+                        <button className="btn-secondary" onClick={() => openSessionDetail(s.code)} style={{ fontSize: ".8rem", padding: "8px 14px" }}>📸 Gérer</button>
+                        <button className="btn-danger" onClick={() => deleteSessionHandler(s.code)}>🗑</button>
+                      </div>
+                    </motion.div>
+                  ))
+                )}
+              </AnimatePresence>
             </div>
           </div>
         )}
@@ -314,33 +331,50 @@ export default function AdminDashboard() {
                 <h1 className="page-title">Toutes les séances</h1>
                 <p className="page-subtitle">Gérez toutes vos séances et accès clients.</p>
               </div>
-              <button className="btn-primary" onClick={() => setIsCreateModalOpen(true)}>✦ Nouvelle séance</button>
+              <motion.button
+                className="btn-primary"
+                onClick={() => setIsCreateModalOpen(true)}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                transition={{ type: "spring", stiffness: 400, damping: 20 }}
+              >
+                ✦ Nouvelle séance
+              </motion.button>
             </div>
             <div className="sessions-list">
-              {allSessions.length === 0 ? (
-                <div className="empty-state">
-                  <div className="empty-icon">📂</div>
-                  <div className="empty-title">Aucune séance pour l'instant</div>
-                  <p className="empty-text">Créez votre première séance pour commencer.</p>
-                </div>
-              ) : (
-                allSessions.map(s => (
-                  <div className="session-row" key={s.id}>
-                    <div>
-                      <div className="session-name">{s.client_name}</div>
-                      <div className="session-meta">
-                        {s.type} · Créée le {formatDate(s.created_at)} · Expire le {formatDate(s.expires_at)}
-                      </div>
-                    </div>
-                    <div className="photo-count">📷 {s.photos?.length || 0} photo{(s.photos?.length || 0) !== 1 ? 's' : ''}</div>
-                    <div className="session-code-badge" onClick={() => copyText(s.code)} title="Copier le code">{s.code}</div>
-                    <div className="session-actions">
-                      <button className="btn-secondary" onClick={() => openSessionDetail(s.code)} style={{ fontSize: ".8rem", padding: "8px 14px" }}>📸 Gérer</button>
-                      <button className="btn-danger" onClick={() => deleteSessionHandler(s.code)}>🗑</button>
-                    </div>
+              <AnimatePresence>
+                {allSessions.length === 0 ? (
+                  <div className="empty-state">
+                    <div className="empty-icon">📂</div>
+                    <div className="empty-title">Aucune séance pour l'instant</div>
+                    <p className="empty-text">Créez votre première séance pour commencer.</p>
                   </div>
-                ))
-              )}
+                ) : (
+                  allSessions.map((s, i) => (
+                    <motion.div
+                      className="session-row"
+                      key={s.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.85 }}
+                      transition={{ delay: i * 0.05, duration: 0.35 }}
+                    >
+                      <div>
+                        <div className="session-name">{s.client_name}</div>
+                        <div className="session-meta">
+                          {s.type} · Créée le {formatDate(s.created_at)} · Expire le {formatDate(s.expires_at)}
+                        </div>
+                      </div>
+                      <div className="photo-count">📷 {s.photos?.length || 0} photo{(s.photos?.length || 0) !== 1 ? 's' : ''}</div>
+                      <div className="session-code-badge" onClick={() => copyText(s.code)} title="Copier le code">{s.code}</div>
+                      <div className="session-actions">
+                        <button className="btn-secondary" onClick={() => openSessionDetail(s.code)} style={{ fontSize: ".8rem", padding: "8px 14px" }}>📸 Gérer</button>
+                        <button className="btn-danger" onClick={() => deleteSessionHandler(s.code)}>🗑</button>
+                      </div>
+                    </motion.div>
+                  ))
+                )}
+              </AnimatePresence>
             </div>
           </div>
         )}
@@ -359,7 +393,15 @@ export default function AdminDashboard() {
                   <span className="code-pill">{sessionDetail.code}</span>
                   <button className="btn-icon copy-code-btn" onClick={() => copyText(sessionDetail.code)} title="Copier">📋</button>
                 </div>
-                <button className="btn-primary" onClick={() => setIsUploadModalOpen(true)}>➕ Ajouter des photos</button>
+                <motion.button
+                  className="btn-primary"
+                  onClick={() => setIsUploadModalOpen(true)}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                >
+                  ➕ Ajouter des photos
+                </motion.button>
               </div>
             </div>
 
@@ -509,120 +551,163 @@ export default function AdminDashboard() {
       </main>
 
       {/* CREATE MODAL */}
-      {isCreateModalOpen && (
-        <div className="modal-overlay open">
-          <div className="modal glass-card">
-            <div className="modal-header">
-              <h3 className="modal-title">Nouvelle Séance</h3>
-              <button className="btn-icon" onClick={() => setIsCreateModalOpen(false)}>✕</button>
-            </div>
-            <form onSubmit={handleCreateSession}>
-              <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                <div className="form-group">
-                  <label className="form-label">Nom du client *</label>
-                  <input type="text" id="clientName" name="clientName" className="form-input" placeholder="ex: Marie Dupont" required />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Type de séance</label>
-                  <select id="sessionType" name="sessionType" className="form-input">
-                    <option>Portrait</option><option>Famille</option><option>Mariage</option>
-                    <option>Bébé / Grossesse</option><option>Professionnel</option>
-                    <option>Mode / Beauté</option><option>Autre</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Note interne</label>
-                  <input type="text" id="sessionNote" name="sessionNote" className="form-input" placeholder="optionnel" />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Durée de validité (jours)</label>
-                  <input type="number" id="sessionExpiry" name="sessionExpiry" className="form-input" defaultValue="30" min="1" max="365" />
-                </div>
-                <button type="submit" className="btn-primary" style={{ justifyContent: "center" }}>✨ Créer la séance & générer un code</button>
+      <AnimatePresence>
+        {isCreateModalOpen && (
+          <motion.div
+            className="modal-overlay open"
+            key="create-modal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <motion.div
+              className="modal glass-card"
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ duration: 0.25, ease: "easeOut" }}
+            >
+              <div className="modal-header">
+                <h3 className="modal-title">Nouvelle Séance</h3>
+                <button className="btn-icon" onClick={() => setIsCreateModalOpen(false)}>✕</button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+              <form onSubmit={handleCreateSession}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                  <div className="form-group">
+                    <label className="form-label">Nom du client *</label>
+                    <input type="text" id="clientName" name="clientName" className="form-input" placeholder="ex: Marie Dupont" required />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Type de séance</label>
+                    <select id="sessionType" name="sessionType" className="form-input">
+                      <option>Portrait</option><option>Famille</option><option>Mariage</option>
+                      <option>Bébé / Grossesse</option><option>Professionnel</option>
+                      <option>Mode / Beauté</option><option>Autre</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Note interne</label>
+                    <input type="text" id="sessionNote" name="sessionNote" className="form-input" placeholder="optionnel" />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Durée de validité (jours)</label>
+                    <input type="number" id="sessionExpiry" name="sessionExpiry" className="form-input" defaultValue="30" min="1" max="365" />
+                  </div>
+                  <button type="submit" className="btn-primary" style={{ justifyContent: "center" }}>✨ Créer la séance & générer un code</button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* CODE MODAL */}
-      {isCodeModalOpen && (
-        <div className="modal-overlay open">
-          <div className="modal glass-card" style={{ maxWidth: "440px", textAlign: "center" }}>
-            <div style={{ fontSize: "3rem", marginBottom: "8px" }}>🎉</div>
-            <h3 className="modal-title" style={{ textAlign: "center" }}>Séance créée !</h3>
-            <p style={{ color: "var(--text-muted)", fontSize: ".9rem" }}>Code d'accès client :</p>
-            <div className="code-pill" style={{ margin: "16px auto", fontSize: "2rem", textAlign: "center", cursor: "pointer" }} onClick={() => copyText(newSessionCode)}>{newSessionCode}</div>
-            <div style={{ display: "flex", gap: "10px", justifyContent: "center", marginTop: "16px" }}>
-              <button className="btn-secondary" onClick={() => { setIsCodeModalOpen(false); openSessionDetail(newSessionCode); setIsUploadModalOpen(true); }}>📸 Ajouter des photos</button>
-              <button className="btn-primary" onClick={() => setIsCodeModalOpen(false)}>OK</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {isCodeModalOpen && (
+          <motion.div className="modal-overlay open" key="code-modal"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+            <motion.div className="modal glass-card" style={{ maxWidth: "440px", textAlign: "center" }}
+              initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }} transition={{ duration: 0.25, ease: "easeOut" }}>
+              <div style={{ fontSize: "3rem", marginBottom: "8px" }}>🎉</div>
+              <h3 className="modal-title" style={{ textAlign: "center" }}>Séance créée !</h3>
+              <p style={{ color: "var(--text-muted)", fontSize: ".9rem" }}>Code d'accès client :</p>
+              <div className="code-pill" style={{ margin: "16px auto", fontSize: "2rem", textAlign: "center", cursor: "pointer" }} onClick={() => copyText(newSessionCode)}>{newSessionCode}</div>
+              <div style={{ display: "flex", gap: "10px", justifyContent: "center", marginTop: "16px" }}>
+                <button className="btn-secondary" onClick={() => { setIsCodeModalOpen(false); openSessionDetail(newSessionCode); setIsUploadModalOpen(true); }}>📸 Ajouter des photos</button>
+                <button className="btn-primary" onClick={() => setIsCodeModalOpen(false)}>OK</button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* EDIT USER MODAL */}
-      {userToEdit && (
-        <div className="modal-overlay open">
-          <div className="modal glass-card" style={{ maxWidth: "400px" }}>
-            <h3 style={{ marginBottom: "16px" }}>Modifier l'utilisateur</h3>
-            <form onSubmit={async (e) => {
-              e.preventDefault();
-              try {
-                await updateUser(userToEdit.id, {
-                  name: e.target.editName.value,
-                  email: e.target.editEmail.value,
-                  username: e.target.editUsername.value,
-                  password: e.target.editPassword.value || undefined
-                });
-                showToast("Utilisateur modifié avec succès", "success");
-                setUserToEdit(null);
-                showSuperAdminTab();
-              } catch (err) {
-                showToast("Erreur: " + err.message, "error");
-              }
-            }}>
-              <div className="form-group">
-                <label className="form-label">Nom complet</label>
-                <input type="text" name="editName" className="form-input" defaultValue={userToEdit.name} required />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Nom d'utilisateur</label>
-                <input type="text" name="editUsername" className="form-input" defaultValue={userToEdit.username} required />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Email</label>
-                <input type="email" name="editEmail" className="form-input" defaultValue={userToEdit.email} required />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Nouveau mot de passe (optionnel)</label>
-                <input type="password" name="editPassword" className="form-input" placeholder="••••••••" />
-              </div>
-              <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
-                <button type="button" className="btn-secondary" onClick={() => setUserToEdit(null)}>Annuler</button>
-                <button type="submit" className="btn-primary">Enregistrer</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {userToEdit && (
+          <motion.div className="modal-overlay open" key="edit-modal"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+            <motion.div className="modal glass-card" style={{ maxWidth: "400px" }}
+              initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }} transition={{ duration: 0.25, ease: "easeOut" }}>
+              <h3 style={{ marginBottom: "16px" }}>Modifier l'utilisateur</h3>
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                try {
+                  await updateUser(userToEdit.id, {
+                    name: e.target.editName.value,
+                    email: e.target.editEmail.value,
+                    username: e.target.editUsername.value,
+                    password: e.target.editPassword.value || undefined
+                  });
+                  showToast("Utilisateur modifié avec succès", "success");
+                  setUserToEdit(null);
+                  showSuperAdminTab();
+                } catch (err) {
+                  showToast("Erreur: " + err.message, "error");
+                }
+              }}>
+                <div className="form-group">
+                  <label className="form-label">Nom complet</label>
+                  <input type="text" name="editName" className="form-input" defaultValue={userToEdit.name} required />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Nom d'utilisateur</label>
+                  <input type="text" name="editUsername" className="form-input" defaultValue={userToEdit.username} required />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Email</label>
+                  <input type="email" name="editEmail" className="form-input" defaultValue={userToEdit.email} required />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Nouveau mot de passe (optionnel)</label>
+                  <input type="password" name="editPassword" className="form-input" placeholder="••••••••" />
+                </div>
+                <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
+                  <button type="button" className="btn-secondary" onClick={() => setUserToEdit(null)}>Annuler</button>
+                  <button type="submit" className="btn-primary">Enregistrer</button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* UPLOAD MODAL - Basic setup for now */}
-      {isUploadModalOpen && (
-        <UploadModal
-          sessionCode={currentSessionCode}
-          sessionId={sessionDetail?.id}
-          onClose={() => { setIsUploadModalOpen(false); loadSessionDetail(currentSessionCode); }}
-          supabase={supabase}
-          showToast={showToast}
-        />
-      )}
+      {/* UPLOAD MODAL */}
+      <AnimatePresence>
+        {isUploadModalOpen && (
+          <motion.div className="modal-overlay open" key="upload-modal"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }} transition={{ duration: 0.25, ease: "easeOut" }}>
+              <UploadModal
+                sessionCode={currentSessionCode}
+                sessionId={sessionDetail?.id}
+                onClose={() => { setIsUploadModalOpen(false); loadSessionDetail(currentSessionCode); }}
+                supabase={supabase}
+                showToast={showToast}
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {toast && (
-        <div className="toast-container">
-          <div className={`toast toast-${toast.type} show`}>{toast.msg}</div>
-        </div>
-      )}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            key="toast"
+            className="toast-container"
+            initial={{ opacity: 0, x: 60 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 60 }}
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+          >
+            <div className={`toast toast-${toast.type} show`}>{toast.msg}</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
     </PageTransition>
   );
@@ -833,6 +918,22 @@ function UploadModal({ sessionCode, sessionId, onClose, supabase, showToast }) {
                 );
               })}
             </div>
+            {uploading && (
+              <div style={{ marginTop: "12px", height: "3px", borderRadius: "2px", background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+                <motion.div
+                  style={{
+                    height: "100%",
+                    borderRadius: "2px",
+                    background: "linear-gradient(90deg, var(--gold), rgba(201,168,76,0.5))",
+                    transformOrigin: "left center",
+                  }}
+                  animate={{
+                    scaleX: Object.values(fileProgress).filter(v => v === "done" || v === "error").length / Math.max(files.length, 1),
+                  }}
+                  transition={{ duration: 0.3, ease: "easeOut" }}
+                />
+              </div>
+            )}
           </div>
         )}
 
