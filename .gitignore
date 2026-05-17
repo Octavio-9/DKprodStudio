@@ -10,3 +10,11 @@ Thumbs.db
 
 uploads/
 *.sqlite
+
+# AI Agent environment
+.agents/
+skills-lock.json
+.superpowers/
+**/.superpowers/
+
+

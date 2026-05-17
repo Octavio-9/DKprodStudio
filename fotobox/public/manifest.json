@@ -1,0 +1,16 @@
+{
+  "name": "DK prod Studio",
+  "short_name": "DK Studio",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "description": "Récupération de Photos - DK prod Studio",
+  "icons": [
+    {
+      "src": "/images/logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
