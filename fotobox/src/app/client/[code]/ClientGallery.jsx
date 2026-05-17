@@ -1,13 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 export default function ClientGallery({ session, initialPhotos }) {
   const [viewMode, setViewMode] = useState("grid");
   const [selectedIndices, setSelectedIndices] = useState(new Set());
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lbIndex, setLbIndex] = useState(0);
+  const [slideDir, setSlideDir] = useState(0); // -1 = prev (right→left), 1 = next (left→right)
   const [toast, setToast] = useState(null);
+
+  const touchStartX = useRef(null);
+  const touchStartY = useRef(null);
 
   const photos = initialPhotos || [];
 
@@ -45,6 +49,7 @@ export default function ClientGallery({ session, initialPhotos }) {
       toggleSelect(idx);
       return;
     }
+    setSlideDir(0);
     setLbIndex(idx);
     setLightboxOpen(true);
     document.body.style.overflow = 'hidden';
@@ -55,9 +60,17 @@ export default function ClientGallery({ session, initialPhotos }) {
     document.body.style.overflow = '';
   };
 
-  const lbPrev = () => setLbIndex((lbIndex - 1 + photos.length) % photos.length);
-  const lbNext = () => setLbIndex((lbIndex + 1) % photos.length);
+  const lbPrev = useCallback(() => {
+    setSlideDir(-1);
+    setLbIndex((i) => (i - 1 + photos.length) % photos.length);
+  }, [photos.length]);
 
+  const lbNext = useCallback(() => {
+    setSlideDir(1);
+    setLbIndex((i) => (i + 1) % photos.length);
+  }, [photos.length]);
+
+  // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (!lightboxOpen) return;
@@ -67,24 +80,39 @@ export default function ClientGallery({ session, initialPhotos }) {
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [lightboxOpen, lbIndex]);
+  }, [lightboxOpen, lbPrev, lbNext]);
 
-  // Transforme l'URL Supabase Storage pour forcer le téléchargement si nécessaire (Supabase le gère via "download")
+  // Touch swipe handlers
+  const onTouchStart = (e) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const onTouchEnd = (e) => {
+    if (touchStartX.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    const dy = e.changedTouches[0].clientY - touchStartY.current;
+    touchStartX.current = null;
+    touchStartY.current = null;
+
+    // Only trigger if horizontal swipe dominates and distance > 50px
+    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy)) return;
+    if (dx < 0) lbNext(); // swipe left → next
+    else lbPrev();         // swipe right → prev
+  };
+
   const downloadPhoto = async (url, name) => {
     try {
       showToast('Téléchargement en cours...', 'info');
-      
       const response = await fetch(url);
       const blob = await response.blob();
       const blobUrl = URL.createObjectURL(blob);
-      
       const a = document.createElement('a');
       a.href = blobUrl;
       a.download = name || 'photo.jpg';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      
       setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
       showToast('Photo téléchargée !', 'success');
     } catch (err) {
@@ -105,8 +133,24 @@ export default function ClientGallery({ session, initialPhotos }) {
     }
   };
 
+  // Slide animation key: forces remount on index change for CSS animation
+  const slideClass = slideDir === 0 ? '' : slideDir > 0 ? 'lb-slide-next' : 'lb-slide-prev';
+
   return (
     <>
+      <style>{`
+        @keyframes lb-from-right {
+          from { transform: translateX(60px); opacity: 0; }
+          to   { transform: translateX(0);    opacity: 1; }
+        }
+        @keyframes lb-from-left {
+          from { transform: translateX(-60px); opacity: 0; }
+          to   { transform: translateX(0);     opacity: 1; }
+        }
+        .lb-slide-next { animation: lb-from-right 0.22s ease; }
+        .lb-slide-prev { animation: lb-from-left  0.22s ease; }
+      `}</style>
+
       <div className="client-hero">
         <div className="hero-badge" style={{ marginBottom: "16px" }}>✦ {session.type}</div>
         <h1>Bonjour, <span className="session-name-display">{session.client_name}</span>&nbsp;!</h1>
@@ -135,10 +179,10 @@ export default function ClientGallery({ session, initialPhotos }) {
               <button className="btn-secondary" onClick={selectAll} id="selectAllBtn">
                 {selectedIndices.size === photos.length ? 'Tout désélectionner' : 'Tout sélectionner'}
               </button>
-              <button 
-                className="btn-primary" 
-                onClick={downloadSelected} 
-                style={{ opacity: selectedIndices.size > 0 ? 1 : 0.5, pointerEvents: selectedIndices.size > 0 ? "auto" : "none", fontSize: ".9rem" }} 
+              <button
+                className="btn-primary"
+                onClick={downloadSelected}
+                style={{ opacity: selectedIndices.size > 0 ? 1 : 0.5, pointerEvents: selectedIndices.size > 0 ? "auto" : "none", fontSize: ".9rem" }}
                 title="Téléchargez les photos sélectionnées"
               >
                 ⬇ Télécharger la sélection
@@ -171,14 +215,51 @@ export default function ClientGallery({ session, initialPhotos }) {
       </div>
 
       {lightboxOpen && (
-        <div className="lightbox open" onClick={(e) => { if(e.target.classList.contains('lightbox')) closeLightbox(); }}>
+        <div
+          className="lightbox open"
+          onClick={(e) => { if (e.target.classList.contains('lightbox')) closeLightbox(); }}
+          onTouchStart={onTouchStart}
+          onTouchEnd={onTouchEnd}
+          style={{ touchAction: "pan-y" }}
+        >
           <div className="lightbox-inner">
             <div className="lightbox-nav">
               <button className="lb-btn" onClick={(e) => { e.stopPropagation(); lbPrev(); }} title="Précédente">&#8592;</button>
               <button className="lb-btn" onClick={(e) => { e.stopPropagation(); lbNext(); }} title="Suivante">&#8594;</button>
             </div>
             <button className="lb-btn lightbox-close" onClick={closeLightbox} title="Fermer">✕</button>
-            <img src={photos[lbIndex]?.url} alt="Aperçu" />
+
+            {/* Image with slide animation */}
+            <img
+              key={lbIndex}
+              src={photos[lbIndex]?.url}
+              alt="Aperçu"
+              className={slideClass}
+            />
+
+            {/* Dot indicators */}
+            {photos.length > 1 && (
+              <div style={{
+                display: "flex", justifyContent: "center", gap: "6px",
+                padding: "10px 0 4px",
+              }}>
+                {photos.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={(e) => { e.stopPropagation(); setSlideDir(i > lbIndex ? 1 : -1); setLbIndex(i); }}
+                    style={{
+                      width: i === lbIndex ? 18 : 6,
+                      height: 6, borderRadius: 3,
+                      background: i === lbIndex ? "var(--gold)" : "rgba(255,255,255,0.3)",
+                      border: "none", cursor: "pointer", padding: 0,
+                      transition: "width 0.25s ease, background 0.25s ease",
+                    }}
+                    aria-label={`Photo ${i + 1}`}
+                  />
+                ))}
+              </div>
+            )}
+
             <div className="lightbox-actions">
               <button className="btn-primary" onClick={(e) => { e.stopPropagation(); downloadPhoto(photos[lbIndex].url, photos[lbIndex].name); }}>
                 ⬇ Télécharger
