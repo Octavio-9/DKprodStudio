@@ -2,6 +2,7 @@ import { getClientSession } from "@/app/actions/admin";
 import ClientGallery from "./ClientGallery";
 import Link from "next/link";
 import Image from "next/image";
+import PageTransition from "@/app/components/PageTransition";
 
 export default async function ClientPage({ params }) {
   const { code } = await params;
@@ -11,6 +12,7 @@ export default async function ClientPage({ params }) {
   if (!result || result.isExpired) {
     const isExpired = result?.isExpired;
     return (
+      <PageTransition>
       <main className="client-page">
         {/* ... existing header and background blobs ... */}
         <div className="bg-blobs">
@@ -43,12 +45,14 @@ export default async function ClientPage({ params }) {
           </div>
         </div>
       </main>
+      </PageTransition>
     );
   }
 
   const { session, photos } = result;
 
   return (
+    <PageTransition>
     <main className="client-page">
       <div className="bg-blobs">
         <div className="blob blob-1"></div>
@@ -71,5 +75,6 @@ export default async function ClientPage({ params }) {
         <ClientGallery session={session} initialPhotos={photos || []} />
       </div>
     </main>
+    </PageTransition>
   );
 }

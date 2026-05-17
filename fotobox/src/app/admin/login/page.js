@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import Image from "next/image";
 import Link from "next/link";
+import PageTransition from "@/app/components/PageTransition";
 
 export default function AdminLogin() {
   const [tab, setTab] = useState("login");
@@ -111,6 +112,7 @@ export default function AdminLogin() {
   };
 
   return (
+    <PageTransition>
     <main className="auth-page">
       <div className="bg-blobs">
         <div className="blob blob-1"></div>
@@ -206,5 +208,6 @@ export default function AdminLogin() {
         </div>
       )}
     </main>
+    </PageTransition>
   );
 }

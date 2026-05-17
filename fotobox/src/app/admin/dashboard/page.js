@@ -5,11 +5,13 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import Image from "next/image";
 import Link from "next/link";
-import { 
-  getSuperUsers, deleteUser, updateUser, getUserProfile, 
-  createSession, registerPhoto, deleteSession as deleteSessionAction, 
-  deletePhoto as deletePhotoAction, clearPhotos 
+import {
+  getSuperUsers, deleteUser, updateUser, getUserProfile,
+  createSession, registerPhoto, deleteSession as deleteSessionAction,
+  deletePhoto as deletePhotoAction, clearPhotos
 } from "@/app/actions/admin";
+import { motion, AnimatePresence } from "framer-motion";
+import PageTransition from "@/app/components/PageTransition";
 
 export default function AdminDashboard() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -24,7 +26,7 @@ export default function AdminDashboard() {
   const [allSessions, setAllSessions] = useState([]);
   const [sessionDetail, setSessionDetail] = useState(null);
   const [sessionPhotos, setSessionPhotos] = useState([]);
-  
+
   const [superUsers, setSuperUsers] = useState([]);
   const [userToEdit, setUserToEdit] = useState(null);
 
@@ -44,7 +46,7 @@ export default function AdminDashboard() {
         router.push("/admin/login");
         return;
       }
-      
+
       let profile = null;
       try {
         profile = await getUserProfile(user.id);
@@ -55,7 +57,7 @@ export default function AdminDashboard() {
       // Merge user from auth and profile from DB
       // We also check role in app_metadata as a fallback/secondary source
       const userRole = profile?.role || user.app_metadata?.role || "admin";
-      
+
       setCurrentUser({ ...user, ...profile, role: userRole });
       setLoading(false);
       loadDashboardData(user.id);
@@ -84,21 +86,21 @@ export default function AdminDashboard() {
   const loadDashboardData = async (userId) => {
     const uid = userId || currentUser?.id;
     if (!uid) return;
-    
+
     // Stats
     const { count: sessionCount } = await supabase.from("sessions").select("*", { count: "exact", head: true }).eq("admin_id", uid);
-    
+
     // This is a naive photo count, in a real app you might use an RPC or join
     const { data: sessionsForPhotos } = await supabase.from("sessions").select("id").eq("admin_id", uid);
     let photoCount = 0;
     if (sessionsForPhotos && sessionsForPhotos.length > 0) {
-       const sessionIds = sessionsForPhotos.map(s => s.id);
-       const { count: pCount } = await supabase.from("photos").select("*", { count: "exact", head: true }).in("session_id", sessionIds);
-       photoCount = pCount || 0;
+      const sessionIds = sessionsForPhotos.map(s => s.id);
+      const { count: pCount } = await supabase.from("photos").select("*", { count: "exact", head: true }).in("session_id", sessionIds);
+      photoCount = pCount || 0;
     }
 
     const { data: recent } = await supabase.from("sessions").select("*").eq("admin_id", uid).order("created_at", { ascending: false }).limit(4);
-    
+
     setStats({
       totalSessions: sessionCount || 0,
       totalPhotos: photoCount,
@@ -136,7 +138,7 @@ export default function AdminDashboard() {
 
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     let code = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-    
+
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + expDays);
 
@@ -149,7 +151,7 @@ export default function AdminDashboard() {
         expires_at: expiresAt.toISOString(),
         // admin_id est forcé côté serveur — ne pas l'envoyer depuis le client
       });
-      
+
       setIsCreateModalOpen(false);
       setNewSessionCode(code);
       setIsCodeModalOpen(true);
@@ -160,45 +162,45 @@ export default function AdminDashboard() {
     }
   };
 
-   const deleteSessionHandler = async (code) => {
-     if (!confirm("Supprimer cette séance et toutes ses photos ?")) return;
-     try {
-       await deleteSessionAction(code);
-       showToast("Séance supprimée.", "info");
-       if (currentView === 'dashboard') loadDashboardData();
-       else if (currentView === 'sessions') loadAllSessions();
-     } catch (err) {
-       showToast("Erreur lors de la suppression: " + err.message, "error");
-     }
-   };
- 
-   const removePhoto = async (photoId) => {
-     if (!confirm("Supprimer cette photo ?")) return;
-     try {
-       await deletePhotoAction(photoId);
-       showToast("Photo supprimée.", "info");
-       loadSessionDetail(currentSessionCode);
-     } catch (err) {
-       showToast("Erreur lors de la suppression: " + err.message, "error");
-     }
-   };
- 
-   const clearAllPhotos = async () => {
-     if (!confirm("Supprimer toutes les photos de cette séance ?")) return;
-     try {
-       await clearPhotos(sessionDetail.id);
-       showToast("Toutes les photos ont été supprimées.", "info");
-       loadSessionDetail(currentSessionCode);
-     } catch (err) {
-       showToast("Erreur lors de la suppression: " + err.message, "error");
-     }
-   };
+  const deleteSessionHandler = async (code) => {
+    if (!confirm("Supprimer cette séance et toutes ses photos ?")) return;
+    try {
+      await deleteSessionAction(code);
+      showToast("Séance supprimée.", "info");
+      if (currentView === 'dashboard') loadDashboardData();
+      else if (currentView === 'sessions') loadAllSessions();
+    } catch (err) {
+      showToast("Erreur lors de la suppression: " + err.message, "error");
+    }
+  };
+
+  const removePhoto = async (photoId) => {
+    if (!confirm("Supprimer cette photo ?")) return;
+    try {
+      await deletePhotoAction(photoId);
+      showToast("Photo supprimée.", "info");
+      loadSessionDetail(currentSessionCode);
+    } catch (err) {
+      showToast("Erreur lors de la suppression: " + err.message, "error");
+    }
+  };
+
+  const clearAllPhotos = async () => {
+    if (!confirm("Supprimer toutes les photos de cette séance ?")) return;
+    try {
+      await clearPhotos(sessionDetail.id);
+      showToast("Toutes les photos ont été supprimées.", "info");
+      loadSessionDetail(currentSessionCode);
+    } catch (err) {
+      showToast("Erreur lors de la suppression: " + err.message, "error");
+    }
+  };
 
   // --- Views Navigation ---
   const showDashboardTab = () => { setCurrentView("dashboard"); loadDashboardData(); };
   const showSessionsTab = () => { setCurrentView("sessions"); loadAllSessions(); };
   const showSettingsTab = () => setCurrentView("settings");
-  
+
   const showSuperAdminTab = async () => {
     setCurrentView("super");
     try {
@@ -208,7 +210,7 @@ export default function AdminDashboard() {
       showToast("Erreur: " + e.message, "error");
     }
   };
-  
+
   const openSessionDetail = (code) => {
     setCurrentSessionCode(code);
     setCurrentView("session-detail");
@@ -218,6 +220,7 @@ export default function AdminDashboard() {
   if (loading) return <div style={{ background: "var(--dark-2)", minHeight: "100vh" }}></div>;
 
   return (
+    <PageTransition>
     <div className="admin-layout" style={{ background: "var(--dark-2)", minHeight: "100vh" }}>
       <aside className="sidebar">
         <Link href="/" className="logo">
@@ -359,7 +362,7 @@ export default function AdminDashboard() {
                 <button className="btn-primary" onClick={() => setIsUploadModalOpen(true)}>➕ Ajouter des photos</button>
               </div>
             </div>
-            
+
             <div>
               <div className="section-title">
                 📷 Photos ({sessionPhotos.length})
@@ -387,7 +390,7 @@ export default function AdminDashboard() {
                 </div>
               )}
             </div>
-            
+
             <div style={{ marginTop: "32px", padding: "20px", borderRadius: "var(--radius-md)", background: "rgba(201,168,76,.06)", border: "1px solid rgba(201,168,76,.2)" }}>
               <p style={{ color: "var(--gold)", fontSize: ".85rem", fontWeight: 600, marginBottom: "6px" }}>✦ Lien d'accès client</p>
               <p style={{ color: "var(--text-muted)", fontSize: ".85rem" }}>
@@ -431,7 +434,7 @@ export default function AdminDashboard() {
                 <p className="page-subtitle">Gérez les comptes utilisateurs de l'application et suivez l'activité globale.</p>
               </div>
             </div>
-            
+
             <div className="stats-row">
               <div className="stat-card">
                 <div className="stat-label">Utilisateurs inscrits</div>
@@ -449,7 +452,7 @@ export default function AdminDashboard() {
                 <div className="stat-sub">hébergées</div>
               </div>
             </div>
-            
+
             <div className="section-title">👥 Tous les utilisateurs</div>
             <div className="sessions-list" style={{ marginTop: "16px" }}>
               <table style={{ width: "100%", textAlign: "left", borderCollapse: "collapse", background: "var(--surface)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
@@ -466,7 +469,7 @@ export default function AdminDashboard() {
                   {superUsers.map(u => (
                     <tr key={u.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                       <td style={{ padding: "16px" }}>
-                        <strong style={{ color: "var(--gold)" }}>{u.name || u.username}</strong><br/>
+                        <strong style={{ color: "var(--gold)" }}>{u.name || u.username}</strong><br />
                         <span style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>@{u.username}</span>
                       </td>
                       <td style={{ padding: "16px" }}>{u.email || "—"}</td>
@@ -474,7 +477,7 @@ export default function AdminDashboard() {
                         <span className="code-pill" style={{ fontSize: "0.75rem", background: u.role === "super_admin" ? "#5b4a1b" : "", color: u.role === "super_admin" ? "#f5d78a" : "" }}>{u.role}</span>
                       </td>
                       <td style={{ padding: "16px", fontSize: "0.9rem" }}>
-                        {u.sessions_count} séance(s)<br/>
+                        {u.sessions_count} séance(s)<br />
                         <span style={{ color: "var(--text-muted)" }}>{u.photos_count} photo(s)</span>
                       </td>
                       <td style={{ padding: "16px", textAlign: "right" }}>
@@ -487,7 +490,7 @@ export default function AdminDashboard() {
                                 await deleteUser(u.id);
                                 showToast("Utilisateur supprimé", "success");
                                 showSuperAdminTab();
-                              } catch(e) {
+                              } catch (e) {
                                 showToast("Erreur: " + e.message, "error");
                               }
                             }}>🗑</button>
@@ -575,7 +578,7 @@ export default function AdminDashboard() {
                 showToast("Utilisateur modifié avec succès", "success");
                 setUserToEdit(null);
                 showSuperAdminTab();
-              } catch(err) {
+              } catch (err) {
                 showToast("Erreur: " + err.message, "error");
               }
             }}>
@@ -606,7 +609,7 @@ export default function AdminDashboard() {
 
       {/* UPLOAD MODAL - Basic setup for now */}
       {isUploadModalOpen && (
-        <UploadModal 
+        <UploadModal
           sessionCode={currentSessionCode}
           sessionId={sessionDetail?.id}
           onClose={() => { setIsUploadModalOpen(false); loadSessionDetail(currentSessionCode); }}
@@ -621,6 +624,7 @@ export default function AdminDashboard() {
         </div>
       )}
     </div>
+    </PageTransition>
   );
 }
 
@@ -731,9 +735,9 @@ function UploadModal({ sessionCode, sessionId, onClose, supabase, showToast }) {
 
   const OVERLAY = {
     compressing: { bg: "rgba(201,168,76,0.55)", icon: "⏳", label: "Compression..." },
-    uploading:   { bg: "rgba(26,95,192,0.55)",  icon: "⬆",  label: "Envoi..." },
-    done:        { bg: "rgba(90,247,184,0.45)",  icon: "✓",  label: null },
-    error:       { bg: "rgba(255,107,138,0.45)", icon: "✕",  label: null },
+    uploading: { bg: "rgba(26,95,192,0.55)", icon: "⬆", label: "Envoi..." },
+    done: { bg: "rgba(90,247,184,0.45)", icon: "✓", label: null },
+    error: { bg: "rgba(255,107,138,0.45)", icon: "✕", label: null },
   };
 
   return (

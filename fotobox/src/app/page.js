@@ -1,3 +1,4 @@
+import PageTransition from "./components/PageTransition";
 import Navbar from "./components/Navbar";
 import HeroSection from "./components/HeroSection";
 import FeaturesSection from "./components/FeaturesSection";
@@ -5,6 +6,7 @@ import AnimatedBlobs from "./components/AnimatedBlobs";
 
 export default function Home() {
   return (
+    <PageTransition>
     <main style={{ background: "var(--dark)", minHeight: "100vh", overflowX: "hidden" }}>
       <AnimatedBlobs />
 
@@ -29,5 +31,6 @@ export default function Home() {
         </span>
       </footer>
     </main>
+    </PageTransition>
   );
 }
