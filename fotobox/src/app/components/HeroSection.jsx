@@ -5,6 +5,7 @@ import { motion, useScroll, useMotionValueEvent } from "framer-motion";
 import CodeForm from "./CodeForm";
 import PhotoCollage from "./PhotoCollage";
 import VideoBackground from "./VideoBackground";
+import TextReveal from "./TextReveal";
 
 const TITLE_WORDS = [
   { word: "Vos", gold: false },
@@ -84,17 +85,17 @@ export default function HeroSection() {
         </h1>
 
         {/* Sous-titre */}
-        <motion.p
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.75, duration: 0.5 }}
+        <TextReveal
+          lines={[
+            "Accédez à votre galerie privée en quelques secondes.",
+            "Entrez le code reçu après votre séance.",
+          ]}
+          delay={0.75}
           style={{
             fontSize: "15px", color: "var(--text-muted)",
-            lineHeight: 1.8, maxWidth: "440px", marginBottom: "40px"
+            lineHeight: 1.8, maxWidth: "440px", marginBottom: "40px",
           }}
-        >
-          Accédez à votre galerie privée en quelques secondes. Entrez le code reçu après votre séance.
-        </motion.p>
+        />
 
         {/* Label + CodeForm */}
         <motion.div

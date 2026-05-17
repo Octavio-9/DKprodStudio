@@ -3,6 +3,7 @@ import Navbar from "./components/Navbar";
 import HeroSection from "./components/HeroSection";
 import FeaturesSection from "./components/FeaturesSection";
 import AnimatedBlobs from "./components/AnimatedBlobs";
+import TextReveal from "./components/TextReveal";
 
 export default function Home() {
   return (
@@ -22,13 +23,10 @@ export default function Home() {
         <span style={{ fontSize: "11px", color: "#444", letterSpacing: "1px" }}>
           © {new Date().getFullYear()} FotoBOX · Tous droits réservés
         </span>
-        <span style={{
-          fontSize: "10px", letterSpacing: "3px",
-          color: "#333", fontWeight: 700,
-          fontFamily: "var(--font-playfair)"
-        }}>
-          FOTOBOX
-        </span>
+        <TextReveal
+          lines={["FOTOBOX"]}
+          style={{ fontSize: "10px", letterSpacing: "3px", color: "#333", fontWeight: 700, fontFamily: "var(--font-playfair)" }}
+        />
       </footer>
     </main>
     </PageTransition>

@@ -2,6 +2,7 @@
 
 import { useRef } from "react";
 import { motion, useInView } from "framer-motion";
+import TextReveal from "./TextReveal";
 
 const FEATURES = [
   {
@@ -33,6 +34,17 @@ export default function FeaturesSection() {
     >
       {/* Ligne décorative verticale */}
       <div className="feat-deco-line" />
+
+      <TextReveal
+        lines={["Ce que nous offrons"]}
+        style={{
+          fontSize: "clamp(28px, 3vw, 42px)",
+          fontFamily: "var(--font-playfair)",
+          fontStyle: "italic",
+          color: "var(--text)",
+          marginBottom: "48px",
+        }}
+      />
 
       <div className="features-grid-inner" style={{
         display: "grid",
