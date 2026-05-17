@@ -101,24 +101,54 @@ export default function ClientGallery({ session, initialPhotos }) {
     else lbPrev();         // swipe right → prev
   };
 
+  // Convert any image blob to JPEG via Canvas (ensures gallery compatibility on iOS/Android)
+  const toJpegBlob = (blob) => new Promise((resolve, reject) => {
+    const img = new window.Image();
+    const srcUrl = URL.createObjectURL(blob);
+    img.onload = () => {
+      URL.revokeObjectURL(srcUrl);
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      canvas.getContext('2d').drawImage(img, 0, 0);
+      canvas.toBlob((jpegBlob) => jpegBlob ? resolve(jpegBlob) : reject(new Error('canvas.toBlob failed')), 'image/jpeg', 0.92);
+    };
+    img.onerror = () => { URL.revokeObjectURL(srcUrl); reject(new Error('Image load failed')); };
+    img.src = srcUrl;
+  });
+
   const downloadPhoto = async (url, name) => {
     try {
-      showToast('Téléchargement en cours...', 'info');
+      showToast('Préparation de la photo...', 'info');
       const response = await fetch(url);
-      const blob = await response.blob();
-      const blobUrl = URL.createObjectURL(blob);
+      const rawBlob = await response.blob();
+
+      // Convert to JPEG so iOS/Android gallery accepts it
+      const jpegBlob = await toJpegBlob(rawBlob);
+      const fileName = (name || 'photo').replace(/\.[^.]+$/, '') + '.jpg';
+
+      // Try Web Share API (mobile — opens native share sheet with "Save to Photos")
+      if (navigator.canShare?.({ files: [new File([jpegBlob], fileName, { type: 'image/jpeg' })] })) {
+        const file = new File([jpegBlob], fileName, { type: 'image/jpeg' });
+        await navigator.share({ files: [file], title: fileName });
+        return;
+      }
+
+      // Fallback: classic <a download> (desktop / unsupported browsers)
+      const blobUrl = URL.createObjectURL(jpegBlob);
       const a = document.createElement('a');
       a.href = blobUrl;
-      a.download = name || 'photo.jpg';
+      a.download = fileName;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
       showToast('Photo téléchargée !', 'success');
     } catch (err) {
-      console.warn('Fetch impossible, ouverture directe:', err);
+      if (err?.name === 'AbortError') return; // user cancelled the share sheet — normal
+      console.warn('Téléchargement impossible, ouverture directe:', err);
       window.open(url, '_blank');
-      showToast('Appuyez longuement sur l\'image pour l\'enregistrer.', 'info');
+      showToast("Appuyez longuement sur l'image pour l'enregistrer.", 'info');
     }
   };
 
