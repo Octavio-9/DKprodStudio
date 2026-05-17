@@ -606,3 +606,22 @@ input[type=file] { display: none; }
   .page-header         { flex-direction: column !important; align-items: flex-start !important; gap: 12px; }
   .modal               { margin: 0 8px; width: calc(100% - 16px); }
 }
+
+/* ── Cinematic cursor ────────────────────────────────── */
+/* cursor:none is set dynamically by CinematicCursor.jsx via JS */
+/* This ensures no flicker on elements that override cursor */
+@media (pointer: fine) {
+  a, button, [data-cursor="pointer"] {
+    cursor: none !important;
+  }
+}
+
+/* On touch devices, restore native cursor */
+@media (pointer: coarse) {
+  body {
+    cursor: auto !important;
+  }
+  a, button {
+    cursor: pointer !important;
+  }
+}
