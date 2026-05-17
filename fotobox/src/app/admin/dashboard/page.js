@@ -30,6 +30,8 @@ export default function AdminDashboard() {
   const [superUsers, setSuperUsers] = useState([]);
   const [userToEdit, setUserToEdit] = useState(null);
 
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   // Modals
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -222,27 +224,56 @@ export default function AdminDashboard() {
   return (
     <PageTransition>
     <div className="admin-layout" style={{ background: "var(--dark-2)", minHeight: "100vh" }}>
-      <aside className="sidebar">
-        <Link href="/" className="logo">
+
+      {/* Mobile header bar */}
+      <div className="mobile-admin-header">
+        <Link href="/" className="logo" style={{ textDecoration: "none" }}>
+          <Image src="/images/logo.png" width={32} height={32} className="logo-img" alt="FotoBOX Logo" />
+          <span className="dynamic-text" style={{ fontSize: "1rem" }}>FotoBOX</span>
+        </Link>
+        <button
+          className="hamburger-btn"
+          onClick={() => setMobileMenuOpen(true)}
+          aria-label="Ouvrir le menu"
+        >
+          <span /><span /><span />
+        </button>
+      </div>
+
+      {/* Mobile overlay backdrop */}
+      {mobileMenuOpen && (
+        <div className="sidebar-backdrop" onClick={() => setMobileMenuOpen(false)} />
+      )}
+
+      <aside className={`sidebar${mobileMenuOpen ? " sidebar--open" : ""}`}>
+        {/* Close button (mobile only) */}
+        <button
+          className="sidebar-close-btn"
+          onClick={() => setMobileMenuOpen(false)}
+          aria-label="Fermer le menu"
+        >
+          ✕
+        </button>
+        <Link href="/" className="logo" onClick={() => setMobileMenuOpen(false)}>
           <Image src="/images/logo.png" width={40} height={40} className="logo-img" alt="FotoBOX Logo" />
           <span className="dynamic-text">FotoBOX</span>
         </Link>
-        <button className={`sidebar-item ${currentView === "dashboard" ? "active" : ""}`} onClick={showDashboardTab}>
+        <button className={`sidebar-item ${currentView === "dashboard" ? "active" : ""}`} onClick={() => { showDashboardTab(); setMobileMenuOpen(false); }}>
           <span className="icon">📊</span> Tableau de bord
         </button>
-        <button className={`sidebar-item ${currentView === "sessions" ? "active" : ""}`} onClick={showSessionsTab}>
+        <button className={`sidebar-item ${currentView === "sessions" ? "active" : ""}`} onClick={() => { showSessionsTab(); setMobileMenuOpen(false); }}>
           <span className="icon">📁</span> Séances
         </button>
         <div className="sidebar-divider"></div>
-        <button className={`sidebar-item ${currentView === "settings" ? "active" : ""}`} onClick={showSettingsTab}>
+        <button className={`sidebar-item ${currentView === "settings" ? "active" : ""}`} onClick={() => { showSettingsTab(); setMobileMenuOpen(false); }}>
           <span className="icon">⚙️</span> Paramètres
         </button>
         {currentUser?.role === "super_admin" && (
-          <button className={`sidebar-item ${currentView === "super" ? "active" : ""}`} onClick={showSuperAdminTab}>
+          <button className={`sidebar-item ${currentView === "super" ? "active" : ""}`} onClick={() => { showSuperAdminTab(); setMobileMenuOpen(false); }}>
             <span className="icon">👑</span> Supervision
           </button>
         )}
-        <Link href="/" className="sidebar-item" target="_blank">
+        <Link href="/" className="sidebar-item" target="_blank" onClick={() => setMobileMenuOpen(false)}>
           <span className="icon">🌐</span> Vue client
         </Link>
         <button className="sidebar-item logout" onClick={doLogout}>

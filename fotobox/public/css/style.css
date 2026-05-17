@@ -288,6 +288,11 @@ body {
 .sidebar-item.logout { color: var(--danger); margin-top: auto; }
 .sidebar-item.logout:hover { background: rgba(255,107,138,.1); }
 
+/* Mobile-only elements — hidden on desktop */
+.mobile-admin-header { display: none; }
+.sidebar-backdrop { display: none; }
+.sidebar-close-btn { display: none; }
+
 .main-content { padding: 40px 48px; overflow-y: auto; }
 .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 36px; }
 .page-title { font-family: 'Playfair Display', serif; font-size: 2rem; }
@@ -490,8 +495,48 @@ input[type=file] { display: none; }
   .main-header { padding: 16px 24px; }
   .main-header .logo-img { height: 36px; max-width: 180px; }
   .admin-layout { grid-template-columns: 1fr; }
-  .sidebar { display: none; }
-  .main-content { padding: 24px; }
+  .sidebar {
+    position: fixed; top: 0; left: 0;
+    width: 260px; height: 100vh;
+    transform: translateX(-100%);
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 500;
+    display: flex;
+  }
+  .sidebar--open { transform: translateX(0); }
+  .sidebar-backdrop {
+    display: block;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 499;
+    backdrop-filter: blur(2px);
+  }
+  .sidebar-close-btn {
+    display: flex; align-items: center; justify-content: center;
+    position: absolute; top: 14px; right: 14px;
+    width: 32px; height: 32px; border-radius: 50%;
+    background: rgba(255,255,255,0.07); border: 1px solid var(--border);
+    color: var(--text-muted); font-size: 14px; cursor: pointer;
+    transition: background 0.2s;
+  }
+  .sidebar-close-btn:hover { background: rgba(255,255,255,0.12); }
+  .mobile-admin-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px;
+    background: var(--dark-2); border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .hamburger-btn {
+    display: flex; flex-direction: column; gap: 5px;
+    background: none; border: none; cursor: pointer; padding: 6px;
+  }
+  .hamburger-btn span {
+    display: block; width: 22px; height: 2px;
+    background: var(--text-muted); border-radius: 2px;
+    transition: background 0.2s;
+  }
+  .hamburger-btn:hover span { background: var(--text); }
+  .main-content { padding: 20px; }
   .stats-row { grid-template-columns: 1fr; }
   .session-row { grid-template-columns: 1fr; gap: 12px; }
   .photo-count { white-space: normal; }
