@@ -653,13 +653,7 @@ input[type=file] { display: none; }
 }
 
 /* ── Cinematic cursor ────────────────────────────────── */
-/* cursor:none is set dynamically by CinematicCursor.jsx via JS */
-/* This ensures no flicker on elements that override cursor */
-@media (pointer: fine) {
-  a, button, [data-cursor="pointer"] {
-    cursor: none !important;
-  }
-}
+/* Light field only — native cursor restored */
 
 /* On touch devices, restore native cursor */
 @media (pointer: coarse) {
