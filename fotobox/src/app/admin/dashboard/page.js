@@ -37,6 +37,7 @@ export default function AdminDashboard() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isCodeModalOpen, setIsCodeModalOpen] = useState(false);
   const [newSessionCode, setNewSessionCode] = useState("");
+  const [confirmModal, setConfirmModal] = useState({ open: false, title: "", message: "", confirmLabel: "Confirmer", variant: "delete", onConfirm: null });
 
   const router = useRouter();
   const supabase = createClient();
@@ -71,6 +72,11 @@ export default function AdminDashboard() {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
   };
+
+  const askConfirm = ({ title, message, confirmLabel = "Confirmer", variant = "delete", onConfirm }) => {
+    setConfirmModal({ open: true, title, message, confirmLabel, variant, onConfirm });
+  };
+  const closeConfirm = () => setConfirmModal(prev => ({ ...prev, open: false, onConfirm: null }));
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString("fr-FR", {
@@ -126,9 +132,18 @@ export default function AdminDashboard() {
   };
 
   // --- Actions ---
-  const doLogout = async () => {
-    await supabase.auth.signOut();
-    router.push("/admin/login");
+  const doLogout = () => {
+    askConfirm({
+      title: "Se déconnecter",
+      message: "Vous allez être déconnecté et redirigé vers la page de connexion.",
+      confirmLabel: "Se déconnecter",
+      variant: "logout",
+      onConfirm: async () => {
+        closeConfirm();
+        await supabase.auth.signOut();
+        router.push("/admin/login");
+      },
+    });
   };
 
   const handleCreateSession = async (e) => {
@@ -164,38 +179,62 @@ export default function AdminDashboard() {
     }
   };
 
-  const deleteSessionHandler = async (code) => {
-    if (!confirm("Supprimer cette séance et toutes ses photos ?")) return;
-    try {
-      await deleteSessionAction(code);
-      showToast("Séance supprimée.", "info");
-      if (currentView === 'dashboard') loadDashboardData();
-      else if (currentView === 'sessions') loadAllSessions();
-    } catch (err) {
-      showToast("Erreur lors de la suppression: " + err.message, "error");
-    }
+  const deleteSessionHandler = (code) => {
+    askConfirm({
+      title: "Supprimer la séance",
+      message: "Cette séance et toutes ses photos seront définitivement supprimées. Cette action est irréversible.",
+      confirmLabel: "Supprimer",
+      variant: "delete",
+      onConfirm: async () => {
+        closeConfirm();
+        try {
+          await deleteSessionAction(code);
+          showToast("Séance supprimée.", "info");
+          if (currentView === 'dashboard') loadDashboardData();
+          else if (currentView === 'sessions') loadAllSessions();
+        } catch (err) {
+          showToast("Erreur lors de la suppression: " + err.message, "error");
+        }
+      },
+    });
   };
 
-  const removePhoto = async (photoId) => {
-    if (!confirm("Supprimer cette photo ?")) return;
-    try {
-      await deletePhotoAction(photoId);
-      showToast("Photo supprimée.", "info");
-      loadSessionDetail(currentSessionCode);
-    } catch (err) {
-      showToast("Erreur lors de la suppression: " + err.message, "error");
-    }
+  const removePhoto = (photoId) => {
+    askConfirm({
+      title: "Supprimer la photo",
+      message: "Cette photo sera définitivement supprimée.",
+      confirmLabel: "Supprimer",
+      variant: "delete",
+      onConfirm: async () => {
+        closeConfirm();
+        try {
+          await deletePhotoAction(photoId);
+          showToast("Photo supprimée.", "info");
+          loadSessionDetail(currentSessionCode);
+        } catch (err) {
+          showToast("Erreur lors de la suppression: " + err.message, "error");
+        }
+      },
+    });
   };
 
-  const clearAllPhotos = async () => {
-    if (!confirm("Supprimer toutes les photos de cette séance ?")) return;
-    try {
-      await clearPhotos(sessionDetail.id);
-      showToast("Toutes les photos ont été supprimées.", "info");
-      loadSessionDetail(currentSessionCode);
-    } catch (err) {
-      showToast("Erreur lors de la suppression: " + err.message, "error");
-    }
+  const clearAllPhotos = () => {
+    askConfirm({
+      title: "Vider la séance",
+      message: "Toutes les photos de cette séance seront définitivement supprimées.",
+      confirmLabel: "Tout supprimer",
+      variant: "delete",
+      onConfirm: async () => {
+        closeConfirm();
+        try {
+          await clearPhotos(sessionDetail.id);
+          showToast("Toutes les photos ont été supprimées.", "info");
+          loadSessionDetail(currentSessionCode);
+        } catch (err) {
+          showToast("Erreur lors de la suppression: " + err.message, "error");
+        }
+      },
+    });
   };
 
   // --- Views Navigation ---
@@ -259,25 +298,51 @@ export default function AdminDashboard() {
           <span className="dynamic-text">FotoBOX</span>
         </Link>
         <button className={`sidebar-item ${currentView === "dashboard" ? "active" : ""}`} onClick={() => { showDashboardTab(); setMobileMenuOpen(false); }}>
-          <span className="icon">📊</span> Tableau de bord
+          <span className="icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/>
+            </svg>
+          </span> Tableau de bord
         </button>
         <button className={`sidebar-item ${currentView === "sessions" ? "active" : ""}`} onClick={() => { showSessionsTab(); setMobileMenuOpen(false); }}>
-          <span className="icon">📁</span> Séances
+          <span className="icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>
+            </svg>
+          </span> Séances
         </button>
         <div className="sidebar-divider"></div>
         <button className={`sidebar-item ${currentView === "settings" ? "active" : ""}`} onClick={() => { showSettingsTab(); setMobileMenuOpen(false); }}>
-          <span className="icon">⚙️</span> Paramètres
+          <span className="icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+          </span> Paramètres
         </button>
         {currentUser?.role === "super_admin" && (
           <button className={`sidebar-item ${currentView === "super" ? "active" : ""}`} onClick={() => { showSuperAdminTab(); setMobileMenuOpen(false); }}>
-            <span className="icon">👑</span> Supervision
+            <span className="icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+            </span> Supervision
           </button>
         )}
         <Link href="/" className="sidebar-item" target="_blank" onClick={() => setMobileMenuOpen(false)}>
-          <span className="icon">🌐</span> Vue client
+          <span className="icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+            </svg>
+          </span> Vue client
         </Link>
         <button className="sidebar-item logout" onClick={doLogout}>
-          <span className="icon">🚪</span> Déconnexion
+          <span className="icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+          </span> Déconnexion
         </button>
       </aside>
 
@@ -342,7 +407,13 @@ export default function AdminDashboard() {
                           {s.type} · Créée le {formatDate(s.created_at)} · Expire le {formatDate(s.expires_at)}
                         </div>
                       </div>
-                      <div className="session-code-badge" onClick={() => copyText(s.code)} title="Copier le code">{s.code}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <button className="session-code-badge" title="Copier le lien client" onClick={() => copyText(`${window.location.origin}/client/${s.code}`)}>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                          Lien
+                        </button>
+                        <div className="session-code-badge" onClick={() => copyText(s.code)} title="Copier le code" style={{ background: "rgba(255,255,255,.06)", borderColor: "rgba(255,255,255,.15)", color: "var(--text)" }}>{s.code}</div>
+                      </div>
                       <div className="session-actions">
                         <button className="btn-secondary" onClick={() => openSessionDetail(s.code)} style={{ fontSize: ".8rem", padding: "8px 14px" }}>📸 Gérer</button>
                         <button className="btn-danger" onClick={() => deleteSessionHandler(s.code)}>🗑</button>
@@ -397,7 +468,13 @@ export default function AdminDashboard() {
                         </div>
                       </div>
                       <div className="photo-count">📷 {s.photos?.length || 0} photo{(s.photos?.length || 0) !== 1 ? 's' : ''}</div>
-                      <div className="session-code-badge" onClick={() => copyText(s.code)} title="Copier le code">{s.code}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <button className="session-code-badge" title="Copier le lien client" onClick={() => copyText(`${window.location.origin}/client/${s.code}`)}>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                          Lien
+                        </button>
+                        <div className="session-code-badge" onClick={() => copyText(s.code)} title="Copier le code" style={{ background: "rgba(255,255,255,.06)", borderColor: "rgba(255,255,255,.15)", color: "var(--text)" }}>{s.code}</div>
+                      </div>
                       <div className="session-actions">
                         <button className="btn-secondary" onClick={() => openSessionDetail(s.code)} style={{ fontSize: ".8rem", padding: "8px 14px" }}>📸 Gérer</button>
                         <button className="btn-danger" onClick={() => deleteSessionHandler(s.code)}>🗑</button>
@@ -493,21 +570,95 @@ export default function AdminDashboard() {
             <div className="page-header">
               <div>
                 <h1 className="page-title">Paramètres</h1>
-                <p className="page-subtitle">Modifiez vos informations de profil.</p>
+                <p className="page-subtitle">Gérez votre profil et les préférences de votre studio.</p>
               </div>
             </div>
-            <form style={{ maxWidth: "500px", padding: "24px", borderRadius: "var(--radius-lg)", background: "rgba(201,168,76,.06)", border: "1px solid rgba(201,168,76,.2)", display: "flex", flexDirection: "column", gap: "16px" }} onSubmit={async (e) => {
-              e.preventDefault();
-              const name = e.target.settingName.value;
-              const { error } = await supabase.from('profiles').update({ name }).eq('id', currentUser.id);
-              if (!error) showToast("Profil mis à jour");
-            }}>
-              <div className="form-group">
-                <label className="form-label">Nom du studio</label>
-                <input type="text" id="settingName" className="form-input" defaultValue={currentUser?.name || ""} />
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "24px", maxWidth: "560px", margin: "0 auto" }}>
+
+              {/* Profil */}
+              <div style={{ padding: "24px", borderRadius: "var(--radius-lg)", background: "rgba(201,168,76,.06)", border: "1px solid rgba(201,168,76,.2)" }}>
+                <h3 style={{ color: "var(--gold)", fontFamily: "var(--font-playfair)", fontSize: "1.1rem", marginBottom: "20px" }}>Profil</h3>
+                <form style={{ display: "flex", flexDirection: "column", gap: "16px" }} onSubmit={async (e) => {
+                  e.preventDefault();
+                  const name = e.target.settingName.value.trim();
+                  const { error } = await supabase.from('profiles').update({ name }).eq('id', currentUser.id);
+                  if (!error) {
+                    setCurrentUser(prev => ({ ...prev, name }));
+                    showToast("Profil mis à jour");
+                  } else {
+                    showToast("Erreur lors de la mise à jour", "error");
+                  }
+                }}>
+                  <div className="form-group">
+                    <label className="form-label">Email</label>
+                    <input type="email" className="form-input" value={currentUser?.email || ""} readOnly style={{ opacity: 0.5, cursor: "not-allowed" }} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Nom du studio</label>
+                    <input type="text" id="settingName" className="form-input" defaultValue={currentUser?.name || ""} required minLength="2" />
+                  </div>
+                  <button type="submit" className="btn-primary" style={{ justifyContent: "center" }}>Enregistrer</button>
+                </form>
               </div>
-              <button type="submit" className="btn-primary" style={{ justifyContent: "center" }}>Enregistrer</button>
-            </form>
+
+              {/* Mot de passe */}
+              <div style={{ padding: "24px", borderRadius: "var(--radius-lg)", background: "rgba(201,168,76,.06)", border: "1px solid rgba(201,168,76,.2)" }}>
+                <h3 style={{ color: "var(--gold)", fontFamily: "var(--font-playfair)", fontSize: "1.1rem", marginBottom: "20px" }}>Changer le mot de passe</h3>
+                <form style={{ display: "flex", flexDirection: "column", gap: "16px" }} onSubmit={async (e) => {
+                  e.preventDefault();
+                  const newPass = e.target.newPassword.value;
+                  const confirmPass = e.target.confirmPassword.value;
+                  if (newPass !== confirmPass) {
+                    showToast("Les mots de passe ne correspondent pas", "error");
+                    return;
+                  }
+                  const { error } = await supabase.auth.updateUser({ password: newPass });
+                  if (!error) {
+                    showToast("Mot de passe mis à jour");
+                    e.target.reset();
+                  } else {
+                    showToast(error.message || "Erreur lors du changement", "error");
+                  }
+                }}>
+                  <div className="form-group">
+                    <label className="form-label">Nouveau mot de passe</label>
+                    <input type="password" name="newPassword" className="form-input" placeholder="••••••••" required minLength="6" />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Confirmer le mot de passe</label>
+                    <input type="password" name="confirmPassword" className="form-input" placeholder="••••••••" required />
+                  </div>
+                  <button type="submit" className="btn-primary" style={{ justifyContent: "center" }}>Mettre à jour</button>
+                </form>
+              </div>
+
+              {/* Séances */}
+              <div style={{ padding: "24px", borderRadius: "var(--radius-lg)", background: "rgba(201,168,76,.06)", border: "1px solid rgba(201,168,76,.2)" }}>
+                <h3 style={{ color: "var(--gold)", fontFamily: "var(--font-playfair)", fontSize: "1.1rem", marginBottom: "20px" }}>Séances</h3>
+                <div className="form-group">
+                  <label className="form-label">Durée d'expiration par défaut</label>
+                  <select className="form-input" defaultValue={typeof window !== 'undefined' ? (localStorage.getItem('fotobox_default_expiry') || '30') : '30'} onChange={(e) => {
+                    localStorage.setItem('fotobox_default_expiry', e.target.value);
+                    showToast(`Durée par défaut : ${e.target.value} jours`, "info");
+                  }}>
+                    <option value="7">7 jours</option>
+                    <option value="14">14 jours</option>
+                    <option value="30">30 jours</option>
+                  </select>
+                  <p style={{ color: "var(--text-muted)", fontSize: "0.8rem", marginTop: "6px" }}>Pré-remplie automatiquement lors de la création d'une séance.</p>
+                </div>
+              </div>
+
+              {/* Compte */}
+              <div style={{ padding: "24px", borderRadius: "var(--radius-lg)", background: "rgba(255,80,80,.05)", border: "1px solid rgba(255,80,80,.15)" }}>
+                <h3 style={{ color: "#ff6b6b", fontFamily: "var(--font-playfair)", fontSize: "1.1rem", marginBottom: "20px" }}>Compte</h3>
+                <button className="btn-secondary" style={{ borderColor: "#ff6b6b", color: "#ff6b6b" }} onClick={doLogout}>
+                  Se déconnecter
+                </button>
+              </div>
+
+            </div>
           </div>
         )}
 
@@ -569,16 +720,22 @@ export default function AdminDashboard() {
                         {u.id !== currentUser.id ? (
                           <>
                             <button className="btn-secondary" style={{ padding: "6px 12px", fontSize: "0.8rem", marginRight: "4px" }} onClick={() => setUserToEdit(u)}>✏️ Éditer</button>
-                            <button className="btn-danger" style={{ padding: "6px 12px", fontSize: "0.8rem" }} onClick={async () => {
-                              if (!confirm("Attention ! Êtes-vous sûr de vouloir supprimer cet utilisateur ?\\n\\nToutes ses séances et photos seront perdues !")) return;
-                              try {
-                                await deleteUser(u.id);
-                                showToast("Utilisateur supprimé", "success");
-                                showSuperAdminTab();
-                              } catch (e) {
-                                showToast("Erreur: " + e.message, "error");
-                              }
-                            }}>🗑</button>
+                            <button className="btn-danger" style={{ padding: "6px 12px", fontSize: "0.8rem" }} onClick={() => askConfirm({
+                              title: "Supprimer l'utilisateur",
+                              message: `Toutes les séances et photos de "${u.name || u.username}" seront définitivement perdues.`,
+                              confirmLabel: "Supprimer",
+                              variant: "delete",
+                              onConfirm: async () => {
+                                closeConfirm();
+                                try {
+                                  await deleteUser(u.id);
+                                  showToast("Utilisateur supprimé", "success");
+                                  showSuperAdminTab();
+                                } catch (e) {
+                                  showToast("Erreur: " + e.message, "error");
+                                }
+                              },
+                            })}>🗑</button>
                           </>
                         ) : (
                           <span style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>(Vous)</span>
@@ -635,7 +792,7 @@ export default function AdminDashboard() {
                   </div>
                   <div className="form-group">
                     <label className="form-label">Durée de validité (jours)</label>
-                    <input type="number" id="sessionExpiry" name="sessionExpiry" className="form-input" defaultValue="30" min="1" max="365" />
+                    <input type="number" id="sessionExpiry" name="sessionExpiry" className="form-input" defaultValue={typeof window !== 'undefined' ? (localStorage.getItem('fotobox_default_expiry') || '30') : '30'} min="1" max="365" />
                   </div>
                   <button type="submit" className="btn-primary" style={{ justifyContent: "center" }}>✨ Créer la séance & générer un code</button>
                 </div>
@@ -732,6 +889,51 @@ export default function AdminDashboard() {
                 supabase={supabase}
                 showToast={showToast}
               />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* CONFIRM MODAL */}
+      <AnimatePresence>
+        {confirmModal.open && (
+          <motion.div className="modal-overlay open" key="confirm-modal"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
+            onClick={closeConfirm}>
+            <motion.div className="modal glass-card" style={{ maxWidth: "400px", textAlign: "center", padding: "36px 32px" }}
+              initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }} transition={{ duration: 0.25, ease: "easeOut" }}
+              onClick={e => e.stopPropagation()}>
+              <div style={{ display: "flex", justifyContent: "center", marginBottom: "22px" }}>
+                {confirmModal.variant === "logout" ? (
+                  <div style={{ width: "60px", height: "60px", borderRadius: "50%", background: "rgba(201,168,76,.1)", border: "1px solid rgba(201,168,76,.3)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                      <polyline points="16 17 21 12 16 7"/>
+                      <line x1="21" y1="12" x2="9" y2="12"/>
+                    </svg>
+                  </div>
+                ) : (
+                  <div style={{ width: "60px", height: "60px", borderRadius: "50%", background: "rgba(255,80,80,.1)", border: "1px solid rgba(255,80,80,.3)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#ff6b6b" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="3 6 5 6 21 6"/>
+                      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                      <path d="M10 11v6M14 11v6"/>
+                      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                    </svg>
+                  </div>
+                )}
+              </div>
+              <h3 style={{ fontFamily: "var(--font-playfair)", fontSize: "1.3rem", color: "var(--text)", marginBottom: "10px" }}>{confirmModal.title}</h3>
+              <p style={{ color: "var(--text-muted)", fontSize: "0.88rem", marginBottom: "28px", lineHeight: 1.6 }}>{confirmModal.message}</p>
+              <div style={{ display: "flex", gap: "12px" }}>
+                <button className="btn-secondary" style={{ flex: 1, justifyContent: "center" }} onClick={closeConfirm}>Annuler</button>
+                <button
+                  className={confirmModal.variant === "logout" ? "btn-secondary" : "btn-danger"}
+                  style={{ flex: 1, justifyContent: "center", ...(confirmModal.variant === "logout" ? { borderColor: "var(--gold)", color: "var(--gold)" } : {}) }}
+                  onClick={confirmModal.onConfirm}
+                >{confirmModal.confirmLabel}</button>
+              </div>
             </motion.div>
           </motion.div>
         )}
